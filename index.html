@@ -159,7 +159,17 @@ a { color: inherit; }
   .header-inner { padding: 12px 16px !important; }
   .mobile-tab-bar { display: flex !important; }
   .app-shell { padding-bottom: 62px; }
+  .wrong-book-footer { bottom: calc(56px + env(safe-area-inset-bottom, 0px)) !important; }
+  /* 考試 header 手機版 */
+  .exam-hd-inner { padding: 10px 14px !important; gap: 8px !important; }
+  .exam-hd-progress { order: 10; flex-basis: 100% !important; margin-top: 2px; }
+  .show-sm { display: flex !important; }
+  .exam-submit-label::after { content: "送出考卷"; }
 }
+@media (min-width: 641px) {
+  .exam-submit-label::after { content: "送出考卷"; }
+}
+.show-sm { display: none; }
 
 /* 手機底部 Tab Bar */
 .mobile-tab-bar {
@@ -1222,16 +1232,19 @@ function Exam({ user, exam, onSubmit, onExit }) {
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       <header style={{ position: "sticky", top: 0, zIndex: 30, background: "var(--bg)", borderBottom: "1px solid var(--line-soft)" }}>
-        <div style={{ maxWidth: 1320, margin: "0 auto", padding: "12px 22px", display: "flex", alignItems: "center", gap: 18 }}>
-          <button className="btn btn-ghost" onClick={handleExit} style={{ padding: "8px 12px" }} title="離開（進度已儲存至雲端）">
+        <div className="exam-hd-inner" style={{ maxWidth: 1320, margin: "0 auto", padding: "12px 22px", display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+          <button className="btn btn-ghost" onClick={handleExit} style={{ padding: "8px 10px", flex: "none" }} title="離開（進度已儲存至雲端）">
             <Icon name="arrowL" size={16} /> <span className="hide-sm">離開</span>
           </button>
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <span className="mono show-sm" style={{ fontSize: 12, color: "var(--ink-mute)", alignItems: "center", gap: 5, flex: "none" }}>
+            <Icon name="clock" size={13} /> {mmss}
+          </span>
+          <div className="exam-hd-progress" style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
               <span className="mono" style={{ fontSize: 12, color: "var(--ink-soft)" }}>
                 {exam.mode === "practice" ? "錯題重練" : "模擬抽考"} · 已作答 {answeredCount}/{total}
               </span>
-              <span className="mono" style={{ fontSize: 12, color: "var(--ink-mute)", display: "flex", alignItems: "center", gap: 5 }}>
+              <span className="mono hide-sm" style={{ fontSize: 12, color: "var(--ink-mute)", display: "flex", alignItems: "center", gap: 5 }}>
                 <Icon name="clock" size={13} /> {mmss}
               </span>
             </div>
@@ -1239,11 +1252,15 @@ function Exam({ user, exam, onSubmit, onExit }) {
               <div style={{ height: "100%", width: `${(answeredCount / total) * 100}%`, background: "var(--accent)", borderRadius: 99, transition: "width .3s" }} />
             </div>
           </div>
-          <button className="btn show-lg-none" onClick={() => setNavOpen(true)} style={{ padding: "8px 12px" }}>
-            <Icon name="list" size={16} /> 題號
-            {flaggedList.length > 0 && <span style={{ marginLeft: 2, color: "var(--flag)", fontSize: 12 }}>·{flaggedList.length}</span>}
-          </button>
-          <button className="btn btn-primary" onClick={() => setConfirm(true)}>送出考卷</button>
+          <div style={{ display: "flex", gap: 8, marginLeft: "auto", flex: "none" }}>
+            <button className="btn show-lg-none" onClick={() => setNavOpen(true)} style={{ padding: "8px 10px" }}>
+              <Icon name="list" size={16} />
+              {flaggedList.length > 0 && <span style={{ marginLeft: 2, color: "var(--flag)", fontSize: 12 }}>·{flaggedList.length}</span>}
+            </button>
+            <button className="btn btn-primary" onClick={() => setConfirm(true)}>
+              <span className="exam-submit-label" />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -1262,7 +1279,7 @@ function Exam({ user, exam, onSubmit, onExit }) {
                   borderColor: flags[q.id] ? "var(--flag)" : "var(--line)",
                   background: flags[q.id] ? "var(--flag-soft)" : "var(--panel-2)",
                 }}>
-                <Icon name="flag" size={15} /> {flags[q.id] ? "已標註不確定" : "標註不確定"}
+                <Icon name="flag" size={15} /> {flags[q.id] ? "已標註" : "標註"}
               </button>
             </div>
 
@@ -1345,7 +1362,7 @@ function Exam({ user, exam, onSubmit, onExit }) {
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
               <SummaryRow label="已作答" value={`${answeredCount} / ${total} 題`} tone={answeredCount === total ? "var(--correct)" : "var(--flag)"} />
               <SummaryRow label="未作答" value={`${total - answeredCount} 題`} tone={total - answeredCount > 0 ? "var(--wrong)" : "var(--ink-mute)"} />
-              <SummaryRow label="標註不確定" value={`${flaggedList.length} 題`} tone="var(--flag)" />
+              <SummaryRow label="標註" value={`${flaggedList.length} 題`} tone="var(--flag)" />
             </div>
             {total - answeredCount > 0 && (
               <p style={{ fontSize: 13, color: "var(--wrong)", marginBottom: 18 }}>
@@ -1409,7 +1426,7 @@ function NavPanel({ qs, idx, answers, flags, flaggedList, goto }) {
         </div>
         {flaggedList.length === 0 ? (
           <p style={{ fontSize: 13, color: "var(--ink-mute)", lineHeight: 1.6 }}>
-            尚未標註任何題目。作答時按「標註不確定」或鍵盤 <span className="mono">F</span>，會列在此處方便回頭檢查。
+            尚未標註任何題目。作答時按「標註」或鍵盤 <span className="mono">F</span>，會列在此處方便回頭檢查。
           </p>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -1472,7 +1489,7 @@ function Result({ record, onHome, onWrong, onRetry }) {
         {[
           { label: "答對", value: correct, tone: "var(--correct)" },
           { label: "答錯", value: wrongCount, tone: wrongCount ? "var(--wrong)" : "var(--ink)" },
-          { label: "標註不確定", value: flaggedCount, tone: "var(--flag)" },
+          { label: "標註", value: flaggedCount, tone: "var(--flag)" },
           { label: "用時", value: `${mins}:${String(secs).padStart(2, "0")}`, tone: "var(--ink)" },
         ].map((s, i) => (
           <div key={s.label} style={{ padding: "20px 12px", borderLeft: i ? "1px solid var(--line-soft)" : "none" }}>
@@ -1732,7 +1749,7 @@ function WrongBook({ user, onPractice }) {
       )}
 
       {wrong.length > 0 && (
-        <div style={{
+        <div className="wrong-book-footer" style={{
           position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 25,
           background: "var(--bg)", borderTop: "1px solid var(--line)",
           padding: "14px 24px",
