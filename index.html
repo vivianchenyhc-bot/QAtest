@@ -471,15 +471,22 @@ select.twk-field{padding-right:22px;
       const ordered = recs.slice().sort((a, b) => a.finishedAt - b.finishedAt);
       ordered.forEach((r) => {
         (r.items || []).forEach((it) => {
-          if (it.picked !== it.answer && it.picked != null) {
-            const base = bank[it.qid];
-            if (!base) return;
-            if (!map[it.qid]) {
-              map[it.qid] = { ...base, count: 0, lastWrongAt: 0, lastPicked: null };
-            }
+          const base = bank[it.qid];
+          if (!base) return;
+          const isWrong = it.picked !== it.answer && it.picked != null;
+          const isFlagged = !!it.flagged;
+          if (!isWrong && !isFlagged) return;
+          if (!map[it.qid]) {
+            map[it.qid] = { ...base, count: 0, lastWrongAt: 0, lastPicked: null, everFlagged: false };
+          }
+          if (isWrong) {
             map[it.qid].count += 1;
             map[it.qid].lastWrongAt = r.finishedAt;
             map[it.qid].lastPicked = it.picked;
+          }
+          if (isFlagged) {
+            map[it.qid].everFlagged = true;
+            if (it.picked != null) map[it.qid].lastPicked = it.picked;
           }
         });
       });
@@ -1513,6 +1520,130 @@ function Result({ record, onHome, onWrong, onRetry }) {
 }
 
 /* ============================================================
+   RecordDetail — 單場考試詳細檢視
+   ============================================================ */
+function RecordDetail({ record, onClose }) {
+  const [tab, setTab] = React.useState("all");
+  const bank = {};
+  (window.QUESTION_BANK || []).forEach((q) => { bank[q.id] = q; });
+
+  const items = (record.items || []).map((it, idx) => ({
+    ...it,
+    num: idx + 1,
+    qFull: bank[it.qid] || null,
+    isCorrect: it.picked === it.answer,
+    isAnswered: it.picked != null,
+  }));
+
+  const shown = tab === "wrong"
+    ? items.filter((it) => !it.isCorrect)
+    : tab === "correct"
+    ? items.filter((it) => it.isCorrect && it.isAnswered)
+    : tab === "flagged"
+    ? items.filter((it) => it.flagged)
+    : items;
+
+  const wrongCount = items.filter((it) => !it.isCorrect).length;
+  const correctCount = items.filter((it) => it.isCorrect && it.isAnswered).length;
+  const flaggedCount = items.filter((it) => it.flagged).length;
+
+  const fmt = (t) => {
+    const d = new Date(t);
+    return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+  };
+
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:70, background:"oklch(0 0 0 / 0.6)", display:"flex", justifyContent:"flex-end" }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} className="rise" style={{ width:"min(780px, 96vw)", background:"var(--bg)", borderLeft:"1px solid var(--line)", overflowY:"auto", display:"flex", flexDirection:"column" }}>
+
+        <div style={{ padding:"20px 28px", borderBottom:"1px solid var(--line-soft)", display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, background:"var(--bg)", zIndex:1 }}>
+          <div>
+            <h2 className="serif" style={{ fontSize:22 }}>{record.mode === "practice" ? "錯題重練" : "模擬抽考"} 詳細紀錄</h2>
+            <div className="mono" style={{ fontSize:12, color:"var(--ink-mute)", marginTop:4 }}>{fmt(record.finishedAt)} · {record.id}</div>
+          </div>
+          <button className="btn btn-ghost" onClick={onClose} style={{ padding:8 }}><Icon name="x" size={18} /></button>
+        </div>
+
+        <div style={{ padding:"16px 28px", borderBottom:"1px solid var(--line-soft)", display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:16 }}>
+          {[
+            { label:"分數", val: record.score, tone: record.score >= 80 ? "var(--correct)" : record.score >= 60 ? "var(--accent)" : "var(--wrong)" },
+            { label:"答對", val: record.correct, tone:"var(--correct)" },
+            { label:"答錯", val: record.total - record.correct, tone:"var(--wrong)" },
+            { label:"用時", val: `${Math.floor(record.durationSec/60)}:${String(record.durationSec%60).padStart(2,"0")}`, tone:"var(--ink)" },
+          ].map((s) => (
+            <div key={s.label} style={{ textAlign:"center" }}>
+              <div className="serif" style={{ fontSize:28, fontWeight:600, color:s.tone }}>{s.val}</div>
+              <div className="mono" style={{ fontSize:11, color:"var(--ink-mute)", marginTop:2 }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ padding:"12px 28px", borderBottom:"1px solid var(--line-soft)", display:"flex", gap:8 }}>
+          {[["all",`全部 (${items.length})`],["wrong",`答錯 (${wrongCount})`],["correct",`答對 (${correctCount})`],["flagged",`已標註 (${flaggedCount})`]].map(([kk,l]) => (
+            <button key={kk} onClick={() => setTab(kk)} className="btn" style={{
+              padding:"7px 15px", fontSize:13,
+              background: tab === kk ? "var(--accent-soft)" : "transparent",
+              borderColor: tab === kk ? "var(--accent)" : "var(--line)",
+              color: tab === kk ? "var(--ink)" : "var(--ink-mute)",
+            }}>{l}</button>
+          ))}
+        </div>
+
+        <div style={{ padding:"20px 28px", display:"flex", flexDirection:"column", gap:14 }}>
+          {shown.length === 0 && (
+            <div style={{ textAlign:"center", padding:"40px 0", color:"var(--ink-mute)" }}>
+              <Icon name="check" size={32} /><p style={{ marginTop:12, fontSize:14 }}>這個分類沒有題目</p>
+            </div>
+          )}
+          {shown.map((it) => {
+            const q = it.qFull;
+            if (!q) return (
+              <div key={it.qid} className="card" style={{ padding:"12px 18px", opacity:0.5 }}>
+                <span className="mono" style={{ fontSize:12 }}>{it.qid} — 題目資料不在目前題庫中</span>
+              </div>
+            );
+            return (
+              <div key={it.qid} className="card" style={{ padding:"18px 22px", borderColor: it.isCorrect ? "var(--correct-soft)" : it.isAnswered ? "var(--wrong-soft)" : "var(--line-soft)" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10, flexWrap:"wrap" }}>
+                  <span className="mono" style={{ fontSize:11, color:"var(--ink-mute)" }}>第 {String(it.num).padStart(2,"0")} 題</span>
+                  <span className="mono" style={{ fontSize:11, color:"var(--accent)", fontWeight:600 }}>{it.qid}</span>
+                  <span className="tag">{q.topic}</span>
+                  {it.flagged && <span className="tag" style={{ color:"var(--flag)", borderColor:"var(--flag)" }}>已標註</span>}
+                  <span style={{ marginLeft:"auto", fontSize:12, fontWeight:600, display:"flex", alignItems:"center", gap:4,
+                    color: it.isCorrect ? "var(--correct)" : it.isAnswered ? "var(--wrong)" : "var(--ink-mute)" }}>
+                    {it.isCorrect ? <><Icon name="check" size={13} /> 答對</> : it.isAnswered ? <><Icon name="x" size={13} /> 答錯</> : "未作答"}
+                  </span>
+                </div>
+                <p className="serif" style={{ fontSize:16, lineHeight:1.55, marginBottom:14 }}>{q.q}</p>
+                <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                  {(q.opts || []).map((opt, i) => {
+                    const isCorrect = i === it.answer;
+                    const wasPicked = i === it.picked;
+                    return (
+                      <div key={i} style={{
+                        display:"flex", alignItems:"center", gap:12, padding:"10px 14px", borderRadius:6,
+                        border:"1px solid " + (isCorrect ? "var(--correct)" : wasPicked ? "var(--wrong)" : "var(--line-soft)"),
+                        background: isCorrect ? "var(--correct-soft)" : wasPicked ? "var(--wrong-soft)" : "transparent",
+                      }}>
+                        <span className="mono" style={{ fontSize:12, fontWeight:600, flex:"none",
+                          color: isCorrect ? "var(--correct)" : wasPicked ? "var(--wrong)" : "var(--ink-mute)" }}>{LETTERS[i]}</span>
+                        <span style={{ flex:1, fontSize:14.5, color:"var(--ink-soft)", lineHeight:1.45 }}>{opt}</span>
+                        {isCorrect && <span style={{ fontSize:12, color:"var(--correct)", display:"flex", alignItems:"center", gap:4, flex:"none" }}><Icon name="check" size={13} /> 正解</span>}
+                        {wasPicked && !isCorrect && <span style={{ fontSize:12, color:"var(--wrong)", display:"flex", alignItems:"center", gap:4, flex:"none" }}><Icon name="x" size={12} /> 我的答案</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
    Records
    ============================================================ */
 function Records({ user, onStartExam, onNav }) {
@@ -1520,6 +1651,7 @@ function Records({ user, onStartExam, onNav }) {
   const exams = records.filter((r) => r.mode === "exam");
   const stats = window.ExamStore.stats(user.email);
   const [filter, setFilter] = React.useState("all");
+  const [detail, setDetail] = React.useState(null);
 
   const fmt = (t) => {
     const d = new Date(t);
@@ -1589,7 +1721,9 @@ function Records({ user, onStartExam, onNav }) {
 
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {shown.map((r) => (
-              <div key={r.id} className="card" style={{ padding: "18px 22px", display: "flex", alignItems: "center", gap: 20 }}>
+              <div key={r.id} className="card" onClick={() => setDetail(r)} style={{ padding: "18px 22px", display: "flex", alignItems: "center", gap: 20, cursor: "pointer" }}
+                onMouseEnter={(e) => e.currentTarget.style.borderColor = "var(--ink-mute)"}
+                onMouseLeave={(e) => e.currentTarget.style.borderColor = ""}>
                 <ScoreRing value={r.score} size={58} stroke={5} label={r.score} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
@@ -1609,6 +1743,7 @@ function Records({ user, onStartExam, onNav }) {
           </div>
         </>
       )}
+      {detail && <RecordDetail record={detail} onClose={() => setDetail(null)} />}
     </div>
   );
 }
@@ -1630,9 +1765,14 @@ function WrongBook({ user, onPractice }) {
   const [open, setOpen] = React.useState({});
   const [picked, setPicked] = React.useState({});
   const [topicFilter, setTopicFilter] = React.useState("all");
+  const [flagFilter, setFlagFilter] = React.useState(false);
 
   const topics = ["all", ...Array.from(new Set(wrong.map((w) => w.topic)))];
-  const shown = wrong.filter((w) => topicFilter === "all" || w.topic === topicFilter);
+  const flaggedCount = wrong.filter((w) => w.everFlagged).length;
+  const shown = wrong.filter((w) =>
+    (topicFilter === "all" || w.topic === topicFilter) &&
+    (!flagFilter || w.everFlagged)
+  );
   const selectedIds = Object.keys(picked).filter((id) => picked[id]);
 
   const fmtAgo = (t) => {
@@ -1659,7 +1799,7 @@ function WrongBook({ user, onPractice }) {
         </div>
       ) : (
         <>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", margin: "22px 0 18px" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 10, flexWrap: "wrap", margin: "22px 0 18px", flexDirection: "column" }}>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {topics.map((t) => (
                 <button key={t} onClick={() => setTopicFilter(t)} className="btn"
@@ -1671,6 +1811,15 @@ function WrongBook({ user, onPractice }) {
                   }}>{t === "all" ? `全部 (${wrong.length})` : t}</button>
               ))}
             </div>
+            <button onClick={() => setFlagFilter((f) => !f)} className="btn"
+              style={{
+                padding: "6px 13px", fontSize: 12.5, display: "flex", alignItems: "center", gap: 6,
+                background: flagFilter ? "var(--flag-soft)" : "transparent",
+                borderColor: flagFilter ? "var(--flag)" : "var(--line)",
+                color: flagFilter ? "var(--flag)" : "var(--ink-mute)",
+              }}>
+              <Icon name="flag" size={13} /> 標註過 ({flaggedCount})
+            </button>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -1692,8 +1841,22 @@ function WrongBook({ user, onPractice }) {
                     </button>
 
                     <div style={{ flex: "none", textAlign: "center", minWidth: 52 }}>
-                      <div className="serif" style={{ fontSize: 26, fontWeight: 600, color: "var(--wrong)", lineHeight: 1 }}>{w.count}</div>
-                      <div className="mono" style={{ fontSize: 10, color: "var(--ink-mute)", marginTop: 3 }}>次答錯</div>
+                      {w.count > 0 ? (
+                        <>
+                          <div className="serif" style={{ fontSize: 26, fontWeight: 600, color: "var(--wrong)", lineHeight: 1 }}>{w.count}</div>
+                          <div className="mono" style={{ fontSize: 10, color: "var(--ink-mute)", marginTop: 3 }}>次答錯</div>
+                          {w.everFlagged && (
+                            <div style={{ display: "flex", justifyContent: "center", marginTop: 5, color: "var(--flag)" }}>
+                              <Icon name="flag" size={13} />
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <div style={{ display: "grid", placeItems: "center", color: "var(--flag)" }}><Icon name="flag" size={26} /></div>
+                          <div className="mono" style={{ fontSize: 10, color: "var(--ink-mute)", marginTop: 3 }}>已標註</div>
+                        </>
+                      )}
                     </div>
 
                     <div style={{ width: 1, alignSelf: "stretch", background: "var(--line-soft)" }} />
@@ -1701,8 +1864,12 @@ function WrongBook({ user, onPractice }) {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 8, flexWrap: "wrap" }}>
                         <span className="mono" style={{ fontSize: 11, color: "var(--ink-mute)" }}>#{globalRank}</span>
+                        <span className="mono" style={{ fontSize: 11, color: "var(--accent)", fontWeight: 600 }}>{w.id}</span>
                         <span className="tag">{w.topic}</span>
-                        <span className="mono" style={{ fontSize: 11, color: "var(--ink-mute)" }}>最近答錯 · {fmtAgo(w.lastWrongAt)}</span>
+                        {w.count > 0
+                          ? <span className="mono" style={{ fontSize: 11, color: "var(--ink-mute)" }}>最近答錯 · {fmtAgo(w.lastWrongAt)}</span>
+                          : <span className="mono" style={{ fontSize: 11, color: "var(--flag)" }}>標註過，未曾答錯</span>
+                        }
                       </div>
                       <p className="serif" style={{ fontSize: 17, lineHeight: 1.5 }}>{w.q}</p>
 
