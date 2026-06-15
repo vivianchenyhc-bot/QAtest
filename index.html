@@ -308,6 +308,19 @@ select.twk-field{padding-right:22px;
           return db.collection('records').doc(ekey(email))
             .collection('items').doc(record.id).set(record);
         },
+
+        saveActiveExam: function (email, state) {
+          return db.collection('active_exams').doc(ekey(email)).set(state);
+        },
+
+        getActiveExam: function (email) {
+          return db.collection('active_exams').doc(ekey(email)).get()
+            .then(function (doc) { return doc.exists ? doc.data() : null; });
+        },
+
+        deleteActiveExam: function (email) {
+          return db.collection('active_exams').doc(ekey(email)).delete();
+        },
       };
 
       console.log('[CloudStore] Firebase 連線成功 ✓');
@@ -1095,6 +1108,7 @@ function Exam({ user, exam, onSubmit, onExit }) {
   const [confirm, setConfirm] = React.useState(false);
   const [elapsed, setElapsed] = React.useState(Math.round((Date.now() - exam.startedAt) / 1000));
   const mainRef = React.useRef(null);
+  const cloudSaveTimer = React.useRef(null);
 
   const qs = exam.questions;
   const total = qs.length;
@@ -1108,12 +1122,15 @@ function Exam({ user, exam, onSubmit, onExit }) {
   }, [exam.startedAt]);
 
   React.useEffect(() => {
-    try {
-      localStorage.setItem(activeKey, JSON.stringify({
-        examId: exam.examId, mode: exam.mode, startedAt: exam.startedAt,
-        questions: qs, idx, answers, flags,
-      }));
-    } catch (e) {}
+    const state = { examId: exam.examId, mode: exam.mode, startedAt: exam.startedAt, questions: qs, idx, answers, flags };
+    try { localStorage.setItem(activeKey, JSON.stringify(state)); } catch (e) {}
+    if (window.CloudStore) {
+      if (cloudSaveTimer.current) clearTimeout(cloudSaveTimer.current);
+      cloudSaveTimer.current = setTimeout(() => {
+        const compact = { examId: state.examId, mode: state.mode, startedAt: state.startedAt, questionIds: qs.map((q) => q.id), idx, answers, flags };
+        window.CloudStore.saveActiveExam(user.email, compact).catch(console.warn);
+      }, 30000);
+    }
   }, [idx, answers, flags]);
 
   const pick = (qid, optIdx) => setAnswers((a) => ({ ...a, [qid]: optIdx }));
@@ -1132,8 +1149,19 @@ function Exam({ user, exam, onSubmit, onExit }) {
     return () => window.removeEventListener("keydown", h);
   }, [idx, q, confirm, total]);
 
+  const handleExit = () => {
+    if (window.CloudStore) {
+      if (cloudSaveTimer.current) clearTimeout(cloudSaveTimer.current);
+      const compact = { examId: exam.examId, mode: exam.mode, startedAt: exam.startedAt, questionIds: qs.map((q) => q.id), idx, answers, flags };
+      window.CloudStore.saveActiveExam(user.email, compact).catch(console.warn);
+    }
+    onExit();
+  };
+
   const finalize = () => {
+    if (cloudSaveTimer.current) clearTimeout(cloudSaveTimer.current);
     try { localStorage.removeItem(activeKey); } catch (e) {}
+    if (window.CloudStore) window.CloudStore.deleteActiveExam(user.email).catch(console.warn);
     const items = qs.map((qq) => ({
       qid: qq.id, topic: qq.topic, answer: qq.a,
       picked: answers[qq.id] != null ? answers[qq.id] : null,
@@ -1152,7 +1180,7 @@ function Exam({ user, exam, onSubmit, onExit }) {
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       <header style={{ position: "sticky", top: 0, zIndex: 30, background: "var(--bg)", borderBottom: "1px solid var(--line-soft)" }}>
         <div style={{ maxWidth: 1320, margin: "0 auto", padding: "12px 22px", display: "flex", alignItems: "center", gap: 18 }}>
-          <button className="btn btn-ghost" onClick={onExit} style={{ padding: "8px 12px" }} title="離開（進度已保存）">
+          <button className="btn btn-ghost" onClick={handleExit} style={{ padding: "8px 12px" }} title="離開（進度已儲存至雲端）">
             <Icon name="arrowL" size={16} /> <span className="hide-sm">離開</span>
           </button>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -1750,6 +1778,7 @@ function App() {
   const discardSavedExam = () => {
     if (!user) return;
     try { localStorage.removeItem("exam_app:v1:active:" + user.email); } catch(e) {}
+    if (window.CloudStore) window.CloudStore.deleteActiveExam(user.email).catch(console.warn);
     setSavedExam(null);
   };
 
@@ -1770,21 +1799,38 @@ function App() {
     if (!window.CloudStore) { setUser(u); nav("dashboard"); return; }
     setSyncing(true);
     const localRecs = window.ExamStore.getRecords(u.email);
-    window.CloudStore.saveUser(u)
-      .then(() => window.CloudStore.getRecords(u.email))
-      .then((cloudRecs) => {
-        if (cloudRecs.length === 0 && localRecs.length > 0) {
-          return Promise.all(localRecs.map((r) => window.CloudStore.saveRecord(u.email, r)));
-        }
+    Promise.all([
+      window.CloudStore.saveUser(u),
+      window.CloudStore.getRecords(u.email),
+      window.CloudStore.getActiveExam(u.email),
+    ])
+    .then((results) => {
+      const cloudRecs = results[1];
+      const cloudActive = results[2];
+      const syncs = [];
+      if (cloudRecs.length === 0 && localRecs.length > 0) {
+        localRecs.forEach((r) => syncs.push(window.CloudStore.saveRecord(u.email, r)));
+      } else {
         window.ExamStore._overwriteRecords(u.email, cloudRecs);
-      })
-      .then(() => { setSyncing(false); setUser(u); nav("dashboard"); })
-      .catch((err) => {
-        console.warn('[CloudStore] 同步失敗，使用本機資料:', err.message);
-        setSyncing(false);
-        setUser(u);
-        nav("dashboard");
-      });
+      }
+      if (cloudActive) {
+        const bankMap = {};
+        (window.QUESTION_BANK || []).forEach((q) => { bankMap[q.id] = q; });
+        const questions = (cloudActive.questionIds || []).map((id) => bankMap[id]).filter(Boolean);
+        if (questions.length > 0) {
+          const fullState = { examId: cloudActive.examId, mode: cloudActive.mode, startedAt: cloudActive.startedAt, questions, idx: cloudActive.idx || 0, answers: cloudActive.answers || {}, flags: cloudActive.flags || {} };
+          try { localStorage.setItem("exam_app:v1:active:" + u.email, JSON.stringify(fullState)); } catch(e) {}
+        }
+      }
+      return syncs.length ? Promise.all(syncs) : null;
+    })
+    .then(() => { setSyncing(false); setUser(u); nav("dashboard"); })
+    .catch((err) => {
+      console.warn('[CloudStore] 同步失敗，使用本機資料:', err.message);
+      setSyncing(false);
+      setUser(u);
+      nav("dashboard");
+    });
   };
 
   const Panel = (
