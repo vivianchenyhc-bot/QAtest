@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>擬真考場 · 模擬測驗</title>
+  <title>品管100分考場</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=Noto+Serif+TC:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -318,6 +318,11 @@ select.twk-field{padding-right:22px;
           return db.collection('users').doc(ekey(user.email)).set(user, { merge: true });
         },
 
+        getUser: function (email) {
+          return db.collection('users').doc(ekey(email)).get()
+            .then(function (doc) { return doc.exists ? doc.data() : null; });
+        },
+
         getRecords: function (email) {
           return db.collection('records').doc(ekey(email)).collection('items')
             .orderBy('finishedAt', 'desc').get()
@@ -492,6 +497,13 @@ select.twk-field{padding-right:22px;
       if (Array.isArray(records) && records.length > 0) {
         write(this._recKey(email), records);
       }
+    },
+
+    _updateUser(email, data) {
+      const e = emailKey(email);
+      const users = this.getUsers();
+      if (users[e]) { Object.assign(users[e], data); write("users", users); return users[e]; }
+      return null;
     },
   };
 
@@ -769,7 +781,7 @@ function Brand({ size = "md" }) {
         background: "var(--accent-soft)",
       }}>科</div>
       <div style={{ lineHeight: 1.1 }}>
-        <div className="serif" style={{ fontSize: big ? 22 : 17, fontWeight: 600, letterSpacing: "0.01em" }}>擬真考場</div>
+        <div className="serif" style={{ fontSize: big ? 22 : 17, fontWeight: 600, letterSpacing: "0.01em" }}>品管 100 分</div>
         <div className="mono" style={{ fontSize: big ? 11 : 10, color: "var(--ink-mute)", letterSpacing: "0.14em" }}>MOCK&nbsp;EXAM&nbsp;HALL</div>
       </div>
     </div>
@@ -1831,18 +1843,27 @@ function App() {
     setSyncing(true);
     const localRecs = window.ExamStore.getRecords(u.email);
     Promise.all([
-      window.CloudStore.saveUser(u),
+      window.CloudStore.getUser(u.email),
       window.CloudStore.getRecords(u.email),
       window.CloudStore.getActiveExam(u.email),
     ])
     .then((results) => {
-      const cloudRecs = results[1];
+      const cloudUser   = results[0];
+      const cloudRecs   = results[1];
       const cloudActive = results[2];
-      const syncs = [];
+
+      // DB 已有匿名暱稱 → 沿用，不被空白輸入覆蓋
+      let finalUser = u;
+      if (cloudUser && cloudUser.nickname) {
+        finalUser = { ...u, nickname: cloudUser.nickname, anonId: cloudUser.anonId || u.anonId };
+        window.ExamStore._updateUser(finalUser.email, { nickname: finalUser.nickname, anonId: finalUser.anonId });
+      }
+
+      const syncs = [window.CloudStore.saveUser(finalUser)];
       if (cloudRecs.length === 0 && localRecs.length > 0) {
-        localRecs.forEach((r) => syncs.push(window.CloudStore.saveRecord(u.email, r)));
+        localRecs.forEach((r) => syncs.push(window.CloudStore.saveRecord(finalUser.email, r)));
       } else {
-        window.ExamStore._overwriteRecords(u.email, cloudRecs);
+        window.ExamStore._overwriteRecords(finalUser.email, cloudRecs);
       }
       if (cloudActive) {
         const bankMap = {};
@@ -1850,12 +1871,12 @@ function App() {
         const questions = (cloudActive.questionIds || []).map((id) => bankMap[id]).filter(Boolean);
         if (questions.length > 0) {
           const fullState = { examId: cloudActive.examId, mode: cloudActive.mode, startedAt: cloudActive.startedAt, questions, idx: cloudActive.idx || 0, answers: cloudActive.answers || {}, flags: cloudActive.flags || {} };
-          try { localStorage.setItem("exam_app:v1:active:" + u.email, JSON.stringify(fullState)); } catch(e) {}
+          try { localStorage.setItem("exam_app:v1:active:" + finalUser.email, JSON.stringify(fullState)); } catch(e) {}
         }
       }
-      return syncs.length ? Promise.all(syncs) : null;
+      return Promise.all(syncs).then(() => finalUser);
     })
-    .then(() => { setSyncing(false); setUser(u); nav("dashboard"); })
+    .then((finalUser) => { setSyncing(false); setUser(finalUser); nav("dashboard"); })
     .catch((err) => {
       console.warn('[CloudStore] 同步失敗，使用本機資料:', err.message);
       setSyncing(false);
