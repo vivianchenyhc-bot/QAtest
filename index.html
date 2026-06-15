@@ -155,7 +155,27 @@ a { color: inherit; }
   .stat-row { grid-template-columns: repeat(2, 1fr) !important; row-gap: 28px !important; }
   .hide-sm { display: none !important; }
   .rec-meta { display: none !important; }
+  .header-nav { display: none !important; }
+  .header-inner { padding: 12px 16px !important; }
+  .mobile-tab-bar { display: flex !important; }
+  .app-shell { padding-bottom: 62px; }
 }
+
+/* 手機底部 Tab Bar */
+.mobile-tab-bar {
+  display: none;
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 30;
+  background: var(--bg); border-top: 1px solid var(--line-soft);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.mobile-tab-btn {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 10px 4px 8px; border: 0; background: transparent;
+  font-family: var(--font-sans); font-size: 10.5px; font-weight: 500;
+  color: var(--ink-mute); cursor: pointer; transition: color .15s;
+}
+.mobile-tab-btn.is-active { color: var(--accent); }
 @media (max-width: 420px) {
   .nav-grid { grid-template-columns: repeat(6, 1fr) !important; }
 }
@@ -812,38 +832,49 @@ function PageHeader({ user, onNav, onLogout, active }) {
     { key: "wrong", label: "錯題本", icon: "again" },
   ];
   return (
-    <header style={{
-      borderBottom: "1px solid var(--line-soft)", background: "var(--bg)",
-      position: "sticky", top: 0, zIndex: 20, backdropFilter: "blur(8px)",
-    }}>
-      <div style={{ maxWidth: "var(--maxw)", margin: "0 auto", padding: "14px 24px", display: "flex", alignItems: "center", gap: 20, justifyContent: "space-between" }}>
-        <button className="btn-ghost" onClick={() => onNav("dashboard")} style={{ border: 0, background: "none", padding: 0, cursor: "pointer" }}>
-          <Brand />
-        </button>
-        <nav style={{ display: "flex", gap: 4, flex: 1, justifyContent: "center" }}>
-          {items.map((it) => (
-            <button key={it.key} onClick={() => onNav(it.key)}
-              style={{
-                border: 0, background: active === it.key ? "var(--panel-2)" : "transparent",
-                color: active === it.key ? "var(--ink)" : "var(--ink-mute)",
-                padding: "8px 14px", borderRadius: 6, fontSize: 14, fontWeight: 500,
-                display: "flex", alignItems: "center", gap: 7, cursor: "pointer", transition: "color .15s, background .15s",
-              }}>
-              <Icon name={it.icon} size={15} /> {it.label}
-            </button>
-          ))}
-        </nav>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ textAlign: "right", lineHeight: 1.2 }} className="hide-sm">
-            <div style={{ fontSize: 13.5, fontWeight: 600 }}>{user?.nickname}</div>
-            <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-mute)" }}>{user?.anonId}</div>
-          </div>
-          <button className="btn btn-ghost" onClick={onLogout} title="登出" style={{ padding: "8px 10px" }}>
-            <Icon name="logout" size={16} />
+    <>
+      <header style={{
+        borderBottom: "1px solid var(--line-soft)", background: "var(--bg)",
+        position: "sticky", top: 0, zIndex: 20, backdropFilter: "blur(8px)",
+      }}>
+        <div className="header-inner" style={{ maxWidth: "var(--maxw)", margin: "0 auto", padding: "14px 24px", display: "flex", alignItems: "center", gap: 20, justifyContent: "space-between" }}>
+          <button className="btn-ghost" onClick={() => onNav("dashboard")} style={{ border: 0, background: "none", padding: 0, cursor: "pointer", flex: "none" }}>
+            <Brand />
           </button>
+          <nav className="header-nav" style={{ display: "flex", gap: 4, flex: 1, justifyContent: "center" }}>
+            {items.map((it) => (
+              <button key={it.key} onClick={() => onNav(it.key)}
+                style={{
+                  border: 0, background: active === it.key ? "var(--panel-2)" : "transparent",
+                  color: active === it.key ? "var(--ink)" : "var(--ink-mute)",
+                  padding: "8px 14px", borderRadius: 6, fontSize: 14, fontWeight: 500,
+                  display: "flex", alignItems: "center", gap: 7, cursor: "pointer", transition: "color .15s, background .15s",
+                }}>
+                <Icon name={it.icon} size={15} /> {it.label}
+              </button>
+            ))}
+          </nav>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ textAlign: "right", lineHeight: 1.2 }} className="hide-sm">
+              <div style={{ fontSize: 13.5, fontWeight: 600 }}>{user?.nickname}</div>
+              <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-mute)" }}>{user?.anonId}</div>
+            </div>
+            <button className="btn btn-ghost" onClick={onLogout} title="登出" style={{ padding: "8px 10px" }}>
+              <Icon name="logout" size={16} />
+            </button>
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
+
+      <nav className="mobile-tab-bar">
+        {items.map((it) => (
+          <button key={it.key} className={"mobile-tab-btn" + (active === it.key ? " is-active" : "")} onClick={() => onNav(it.key)}>
+            <Icon name={it.icon} size={22} />
+            {it.label}
+          </button>
+        ))}
+      </nav>
+    </>
   );
 }
 
