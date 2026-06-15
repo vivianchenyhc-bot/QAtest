@@ -455,9 +455,14 @@ select.twk-field{padding-right:22px;
       recs.unshift(full);
       write(this._recKey(email), recs);
       if (window.CloudStore) {
-        window.CloudStore.saveRecord(email, full).catch(function (e) {
-          console.warn('[CloudStore] 儲存紀錄失敗:', e.message);
-        });
+        window.CloudStore.saveRecord(email, full)
+          .then(function () {
+            window.dispatchEvent(new CustomEvent('__cloudSync', { detail: { ok: true, text: '紀錄已同步至雲端' } }));
+          })
+          .catch(function (e) {
+            console.warn('[CloudStore] 儲存紀錄失敗:', e.message);
+            window.dispatchEvent(new CustomEvent('__cloudSync', { detail: { ok: false, text: '雲端同步失敗：' + e.message } }));
+          });
       }
       return full;
     },
@@ -1652,6 +1657,15 @@ function Records({ user, onStartExam, onNav }) {
   const stats = window.ExamStore.stats(user.email);
   const [filter, setFilter] = React.useState("all");
   const [detail, setDetail] = React.useState(null);
+  const [pushStatus, setPushStatus] = React.useState(null);
+
+  const forceSyncToCloud = () => {
+    if (!window.CloudStore || !records.length) return;
+    setPushStatus("syncing");
+    Promise.all(records.map((r) => window.CloudStore.saveRecord(user.email, r)))
+      .then(() => { setPushStatus("ok"); setTimeout(() => setPushStatus(null), 4000); })
+      .catch((e) => { setPushStatus("err:" + e.message); });
+  };
 
   const fmt = (t) => {
     const d = new Date(t);
@@ -1669,8 +1683,23 @@ function Records({ user, onStartExam, onNav }) {
             <Icon name="user" size={14} /> {user.nickname} · 此紀錄僅你本人可見
           </p>
         </div>
-        <button className="btn btn-primary" onClick={onStartExam}><Icon name="spark" size={15} /> 開始新的抽考</button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          {window.CloudStore && (
+            <button className="btn" onClick={forceSyncToCloud} disabled={pushStatus === "syncing"} title="將本機所有紀錄重新推送至 Firebase"
+              style={{ fontSize: 13, padding: "9px 14px", color: pushStatus === "ok" ? "var(--correct)" : pushStatus?.startsWith("err") ? "var(--wrong)" : "var(--ink-mute)", borderColor: pushStatus === "ok" ? "var(--correct)" : pushStatus?.startsWith("err") ? "var(--wrong)" : undefined }}>
+              <Icon name="history" size={14} />
+              {pushStatus === "syncing" ? "同步中…" : pushStatus === "ok" ? "同步成功" : pushStatus?.startsWith("err") ? "同步失敗" : "重新同步至雲端"}
+            </button>
+          )}
+          <button className="btn btn-primary" onClick={onStartExam}><Icon name="spark" size={15} /> 開始新的抽考</button>
+        </div>
       </div>
+      {pushStatus?.startsWith("err") && (
+        <div style={{ marginBottom: 16, padding: "10px 16px", borderRadius: 6, background: "var(--wrong-soft)", border: "1px solid var(--wrong)", color: "var(--wrong)", fontSize: 13 }}>
+          {pushStatus.slice(4)}
+          <p style={{ margin: "4px 0 0", fontSize: 12, opacity: 0.8 }}>請至 Firebase Console → Firestore → Rules 確認規則是否允許寫入（test mode 30 天後會過期）。</p>
+        </div>
+      )}
 
       {records.length === 0 ? (
         <div className="card"><EmptyState icon="history" title="尚無任何考試紀錄"
@@ -1974,6 +2003,18 @@ function App() {
   const [lastRecord, setLastRecord] = React.useState(null);
   const [syncing, setSyncing] = React.useState(false);
   const [savedExam, setSavedExam] = React.useState(null);
+  const [cloudNotif, setCloudNotif] = React.useState(null);
+  const notifTimerRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const handler = (e) => {
+      if (notifTimerRef.current) clearTimeout(notifTimerRef.current);
+      setCloudNotif(e.detail);
+      notifTimerRef.current = setTimeout(() => setCloudNotif(null), 5000);
+    };
+    window.addEventListener('__cloudSync', handler);
+    return () => window.removeEventListener('__cloudSync', handler);
+  }, []);
 
   React.useEffect(() => {
     const r = document.documentElement;
@@ -2085,11 +2126,26 @@ function App() {
     </TweaksPanel>
   );
 
+  const CloudToast = cloudNotif ? (
+    <div style={{
+      position: 'fixed', bottom: 80, right: 20, zIndex: 200,
+      background: cloudNotif.ok ? 'var(--correct-soft)' : 'var(--wrong-soft)',
+      border: '1px solid ' + (cloudNotif.ok ? 'var(--correct)' : 'var(--wrong)'),
+      color: cloudNotif.ok ? 'var(--correct)' : 'var(--wrong)',
+      padding: '10px 16px', borderRadius: 8, fontSize: 13,
+      display: 'flex', alignItems: 'center', gap: 8, maxWidth: 400,
+      boxShadow: 'var(--shadow)',
+    }}>
+      <Icon name={cloudNotif.ok ? 'check' : 'x'} size={14} stroke={2} />
+      {cloudNotif.text}
+    </div>
+  ) : null;
+
   if (route === "auth") {
     return <>{<AuthScreen onAuthed={handleAuthed} syncing={syncing} />}{Panel}</>;
   }
   if (route === "exam" && exam && user) {
-    return <>{<Exam user={user} exam={exam} onSubmit={onSubmit} onExit={() => { setExam(null); nav("dashboard"); }} />}{Panel}</>;
+    return <>{<Exam user={user} exam={exam} onSubmit={onSubmit} onExit={() => { setExam(null); nav("dashboard"); }} />}{Panel}{CloudToast}</>;
   }
   if (route === "result" && lastRecord) {
     return (
@@ -2100,7 +2156,7 @@ function App() {
             onWrong={() => nav("wrong")}
             onRetry={() => startExam()} />
         </div>
-        {Panel}
+        {Panel}{CloudToast}
       </>
     );
   }
@@ -2111,7 +2167,7 @@ function App() {
       {route === "dashboard" && <Dashboard user={user} onStartExam={startExam} onPractice={startPractice} onNav={nav} savedExam={savedExam} onResume={resumeExam} onDiscardSaved={discardSavedExam} />}
       {route === "records" && <Records user={user} onStartExam={startExam} onNav={nav} />}
       {route === "wrong" && <WrongBook user={user} onPractice={startPractice} />}
-      {Panel}
+      {Panel}{CloudToast}
     </div>
   );
 }
