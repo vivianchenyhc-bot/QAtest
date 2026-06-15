@@ -1,0 +1,1840 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>擬真考場 · 模擬測驗</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=Noto+Serif+TC:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+/* ============================================================
+   沉穩學術 — Design tokens
+   ============================================================ */
+:root {
+  --font-serif: "Spectral", "Noto Serif TC", Georgia, serif;
+  --font-sans: "Noto Sans TC", system-ui, -apple-system, sans-serif;
+  --font-mono: "Spline Sans Mono", "SFMono-Regular", Menlo, monospace;
+
+  --bg: oklch(0.20 0.012 250);
+  --bg-2: oklch(0.24 0.013 252);
+  --panel: oklch(0.26 0.014 254);
+  --panel-2: oklch(0.30 0.015 254);
+  --ink: oklch(0.93 0.012 80);
+  --ink-soft: oklch(0.80 0.012 82);
+  --ink-mute: oklch(0.64 0.010 84);
+  --line: oklch(1 0 0 / 0.10);
+  --line-soft: oklch(1 0 0 / 0.06);
+
+  --accent: oklch(0.80 0.085 82);
+  --accent-soft: oklch(0.80 0.085 82 / 0.16);
+  --accent-ink: oklch(0.22 0.02 80);
+
+  --correct: oklch(0.74 0.075 152);
+  --correct-soft: oklch(0.74 0.075 152 / 0.16);
+  --wrong: oklch(0.64 0.13 25);
+  --wrong-soft: oklch(0.64 0.13 25 / 0.16);
+  --flag: oklch(0.78 0.11 60);
+  --flag-soft: oklch(0.78 0.11 60 / 0.18);
+
+  --radius: 4px;
+  --radius-lg: 8px;
+  --shadow: 0 1px 0 oklch(1 0 0 / 0.04) inset, 0 18px 48px -24px oklch(0 0 0 / 0.7);
+  --maxw: 1180px;
+}
+
+[data-theme="paper"] {
+  --bg: oklch(0.95 0.012 86);
+  --bg-2: oklch(0.93 0.013 86);
+  --panel: oklch(0.985 0.008 86);
+  --panel-2: oklch(0.96 0.012 86);
+  --ink: oklch(0.27 0.018 70);
+  --ink-soft: oklch(0.42 0.016 70);
+  --ink-mute: oklch(0.56 0.014 72);
+  --line: oklch(0.27 0.02 70 / 0.16);
+  --line-soft: oklch(0.27 0.02 70 / 0.08);
+  --accent-ink: oklch(0.99 0.01 86);
+  --shadow: 0 1px 0 oklch(1 0 0 / 0.6) inset, 0 16px 40px -26px oklch(0.3 0.02 70 / 0.5);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+#root { min-height: 100vh; }
+
+h1, h2, h3, h4 { font-family: var(--font-serif); font-weight: 600; margin: 0; line-height: 1.2; letter-spacing: -0.01em; }
+p { margin: 0; }
+button { font-family: inherit; cursor: pointer; }
+input { font-family: inherit; }
+::selection { background: var(--accent-soft); }
+a { color: inherit; }
+
+* { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+*::-webkit-scrollbar { width: 9px; height: 9px; }
+*::-webkit-scrollbar-thumb { background: var(--line); border-radius: 99px; }
+
+.serif { font-family: var(--font-serif); }
+.mono { font-family: var(--font-mono); }
+.mute { color: var(--ink-mute); }
+.soft { color: var(--ink-soft); }
+
+.app-shell { min-height: 100vh; display: flex; flex-direction: column; }
+
+.btn {
+  appearance: none; border: 1px solid var(--line);
+  background: var(--panel-2); color: var(--ink);
+  padding: 11px 18px; border-radius: var(--radius);
+  font-size: 14px; font-weight: 500; letter-spacing: 0.01em;
+  display: inline-flex; align-items: center; gap: 8px;
+  transition: background .15s, border-color .15s, transform .05s, opacity .15s;
+}
+.btn:hover { background: var(--panel); border-color: var(--ink-mute); }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-primary {
+  background: var(--accent); color: var(--accent-ink);
+  border-color: transparent; font-weight: 600;
+}
+.btn-primary:hover { background: var(--accent); filter: brightness(1.06); border-color: transparent; }
+.btn-ghost { background: transparent; border-color: transparent; }
+.btn-ghost:hover { background: var(--panel-2); border-color: var(--line-soft); }
+.btn-lg { padding: 14px 26px; font-size: 15px; }
+
+.card {
+  background: var(--panel); border: 1px solid var(--line-soft);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow);
+}
+
+.tag {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--ink-mute);
+  border: 1px solid var(--line); padding: 3px 8px; border-radius: 99px;
+}
+
+.input {
+  width: 100%; background: var(--bg-2); border: 1px solid var(--line);
+  color: var(--ink); padding: 13px 14px; border-radius: var(--radius);
+  font-size: 15px; transition: border-color .15s, background .15s;
+}
+.input:focus { outline: none; border-color: var(--accent); background: var(--bg); }
+.input::placeholder { color: var(--ink-mute); }
+
+.label { font-size: 12.5px; font-weight: 600; letter-spacing: 0.03em; color: var(--ink-soft); text-transform: uppercase; }
+
+.divider { height: 1px; background: var(--line-soft); border: 0; margin: 0; }
+
+@keyframes riseIn { from { transform: translateY(9px); } to { transform: none; } }
+.rise { animation: riseIn .4s cubic-bezier(.2,.7,.3,1); }
+@media (prefers-reduced-motion: reduce) { .rise { animation: none; } }
+
+/* 響應式 */
+.show-lg-none { display: none; }
+@media (max-width: 1024px) {
+  .exam-grid { grid-template-columns: 1fr !important; }
+  .exam-aside { display: none !important; }
+  .show-lg-none { display: inline-flex; }
+}
+@media (max-width: 880px) {
+  .auth-grid { grid-template-columns: 1fr !important; }
+  .auth-aside { display: none !important; }
+  .auth-brand-sm { display: block !important; }
+}
+@media (max-width: 760px) {
+  .dash-top { grid-template-columns: 1fr !important; }
+  .rec-meta { gap: 16px !important; }
+}
+@media (max-width: 640px) {
+  .stat-row { grid-template-columns: repeat(2, 1fr) !important; row-gap: 28px !important; }
+  .hide-sm { display: none !important; }
+  .rec-meta { display: none !important; }
+}
+@media (max-width: 420px) {
+  .nav-grid { grid-template-columns: repeat(6, 1fr) !important; }
+}
+
+/* 題目導航格 */
+.nav-cell {
+  position: relative; aspect-ratio: 1; border-radius: 5px; cursor: pointer;
+  font-family: var(--font-mono); font-size: 11.5px; font-weight: 500;
+  border: 1px solid var(--line); background: transparent; color: var(--ink-mute);
+  transition: background .12s, border-color .12s, color .12s;
+}
+.nav-cell:hover { border-color: var(--ink-mute); }
+.nav-cell.is-ans { background: var(--panel-2); color: var(--ink); border-color: transparent; }
+.nav-cell.is-flag { border-color: var(--flag); }
+.nav-cell.is-cur {
+  background: var(--accent); color: var(--accent-ink);
+  border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.nav-cell .flag-dot { position: absolute; top: 2px; right: 2px; width: 5px; height: 5px; border-radius: 50%; background: var(--flag); }
+.nav-cell.is-cur .flag-dot { background: var(--accent-ink); }
+
+/* Tweaks panel */
+.twk-panel{position:fixed;right:16px;bottom:16px;z-index:2147483646;width:280px;
+  max-height:calc(100vh - 32px);display:flex;flex-direction:column;
+  transform:scale(var(--dc-inv-zoom,1));transform-origin:bottom right;
+  background:rgba(250,249,247,.78);color:#29261b;
+  -webkit-backdrop-filter:blur(24px) saturate(160%);backdrop-filter:blur(24px) saturate(160%);
+  border:.5px solid rgba(255,255,255,.6);border-radius:14px;
+  box-shadow:0 1px 0 rgba(255,255,255,.5) inset,0 12px 40px rgba(0,0,0,.18);
+  font:11.5px/1.4 ui-sans-serif,system-ui,-apple-system,sans-serif;overflow:hidden}
+.twk-hd{display:flex;align-items:center;justify-content:space-between;
+  padding:10px 8px 10px 14px;cursor:move;user-select:none}
+.twk-hd b{font-size:12px;font-weight:600;letter-spacing:.01em}
+.twk-x{appearance:none;border:0;background:transparent;color:rgba(41,38,27,.55);
+  width:22px;height:22px;border-radius:6px;cursor:default;font-size:13px;line-height:1}
+.twk-x:hover{background:rgba(0,0,0,.06);color:#29261b}
+.twk-body{padding:2px 14px 14px;display:flex;flex-direction:column;gap:10px;
+  overflow-y:auto;overflow-x:hidden;min-height:0;
+  scrollbar-width:thin;scrollbar-color:rgba(0,0,0,.15) transparent}
+.twk-row{display:flex;flex-direction:column;gap:5px}
+.twk-row-h{flex-direction:row;align-items:center;justify-content:space-between;gap:10px}
+.twk-lbl{display:flex;justify-content:space-between;align-items:baseline;color:rgba(41,38,27,.72)}
+.twk-lbl>span:first-child{font-weight:500}
+.twk-val{color:rgba(41,38,27,.5);font-variant-numeric:tabular-nums}
+.twk-sect{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+  color:rgba(41,38,27,.45);padding:10px 0 0}
+.twk-sect:first-child{padding-top:0}
+.twk-field{appearance:none;box-sizing:border-box;width:100%;min-width:0;height:26px;padding:0 8px;
+  border:.5px solid rgba(0,0,0,.1);border-radius:7px;
+  background:rgba(255,255,255,.6);color:inherit;font:inherit;outline:none}
+.twk-field:focus{border-color:rgba(0,0,0,.25);background:rgba(255,255,255,.85)}
+select.twk-field{padding-right:22px;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='rgba(0,0,0,.5)' d='M0 0h10L5 6z'/></svg>");
+  background-repeat:no-repeat;background-position:right 8px center}
+.twk-slider{appearance:none;-webkit-appearance:none;width:100%;height:4px;margin:6px 0;
+  border-radius:999px;background:rgba(0,0,0,.12);outline:none}
+.twk-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+  width:14px;height:14px;border-radius:50%;background:#fff;
+  border:.5px solid rgba(0,0,0,.12);box-shadow:0 1px 3px rgba(0,0,0,.2);cursor:default}
+.twk-slider::-moz-range-thumb{width:14px;height:14px;border-radius:50%;
+  background:#fff;border:.5px solid rgba(0,0,0,.12);box-shadow:0 1px 3px rgba(0,0,0,.2);cursor:default}
+.twk-seg{position:relative;display:flex;padding:2px;border-radius:8px;
+  background:rgba(0,0,0,.06);user-select:none}
+.twk-seg-thumb{position:absolute;top:2px;bottom:2px;border-radius:6px;
+  background:rgba(255,255,255,.9);box-shadow:0 1px 2px rgba(0,0,0,.12);
+  transition:left .15s cubic-bezier(.3,.7,.4,1),width .15s}
+.twk-seg button{appearance:none;position:relative;z-index:1;flex:1;border:0;
+  background:transparent;color:inherit;font:inherit;font-weight:500;min-height:22px;
+  border-radius:6px;cursor:default;padding:4px 6px;line-height:1.2;overflow-wrap:anywhere}
+.twk-toggle{position:relative;width:32px;height:18px;border:0;border-radius:999px;
+  background:rgba(0,0,0,.15);transition:background .15s;cursor:default;padding:0}
+.twk-toggle[data-on="1"]{background:#34c759}
+.twk-toggle i{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;
+  background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
+.twk-toggle[data-on="1"] i{transform:translateX(14px)}
+.twk-chips{display:flex;gap:6px}
+.twk-chip{position:relative;appearance:none;flex:1;min-width:0;height:46px;
+  padding:0;border:0;border-radius:6px;overflow:hidden;cursor:default;
+  box-shadow:0 0 0 .5px rgba(0,0,0,.12),0 1px 2px rgba(0,0,0,.06);
+  transition:transform .12s cubic-bezier(.3,.7,.4,1),box-shadow .12s}
+.twk-chip:hover{transform:translateY(-1px);box-shadow:0 0 0 .5px rgba(0,0,0,.18),0 4px 10px rgba(0,0,0,.12)}
+.twk-chip[data-on="1"]{box-shadow:0 0 0 1.5px rgba(0,0,0,.85),0 2px 6px rgba(0,0,0,.15)}
+.twk-chip svg{position:absolute;top:6px;left:6px;width:13px;height:13px;
+  filter:drop-shadow(0 1px 1px rgba(0,0,0,.3))}
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <!-- 題庫（由外部 bank.js 載入） -->
+  <script src="bank.js"></script>
+
+  <!-- Firebase SDK (compat v10) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script>
+  /* ============================================================
+     Firebase / CloudStore 初始化
+     ⚠️  使用前請到 https://console.firebase.google.com
+         1. 建立專案 → 新增網頁應用程式 → 複製設定
+         2. 開啟 Firestore Database（選 test mode 或依下方 rules）
+         3. 將下方 FIREBASE_CONFIG 換成你的設定
+     Firestore 安全規則（Firestore → Rules）：
+       rules_version = '2';
+       service cloud.firestore {
+         match /databases/{database}/documents {
+           match /{document=**} { allow read, write: if true; }
+         }
+       }
+     ============================================================ */
+  (function () {
+    var FIREBASE_CONFIG = {
+      apiKey:            "AIzaSyDzYjMdB48TJNqPcwJy2WCIJ_bs9JNedMg",
+      authDomain:        "qatest-fe293.firebaseapp.com",
+      projectId:         "qatest-fe293",
+      storageBucket:     "qatest-fe293.firebasestorage.app",
+      messagingSenderId: "355883370814",
+      appId:             "1:355883370814:web:562f3ed87c9e26c8d9846f",
+    };
+
+    if (FIREBASE_CONFIG.apiKey === "YOUR_API_KEY") {
+      console.warn('[CloudStore] ⚠️ Firebase 設定未填入，目前使用本機模式。請編輯 index.html 填入你的 Firebase 設定。');
+      window.CloudStore = null;
+      return;
+    }
+
+    try {
+      firebase.initializeApp(FIREBASE_CONFIG);
+      var db = firebase.firestore();
+      var ekey = function (email) { return (email || '').trim().toLowerCase(); };
+
+      window.CloudStore = {
+        db: db,
+
+        saveUser: function (user) {
+          return db.collection('users').doc(ekey(user.email)).set(user, { merge: true });
+        },
+
+        getRecords: function (email) {
+          return db.collection('records').doc(ekey(email)).collection('items')
+            .orderBy('finishedAt', 'desc').get()
+            .then(function (snap) { return snap.docs.map(function (d) { return d.data(); }); });
+        },
+
+        saveRecord: function (email, record) {
+          return db.collection('records').doc(ekey(email))
+            .collection('items').doc(record.id).set(record);
+        },
+      };
+
+      console.log('[CloudStore] Firebase 連線成功 ✓');
+    } catch (err) {
+      console.warn('[CloudStore] Firebase 初始化失敗，使用本機模式：', err.message);
+      window.CloudStore = null;
+    }
+  })();
+  </script>
+
+  <script type="text/babel">
+/* ============================================================
+   資料層 — localStorage 模擬後端
+   ============================================================ */
+(function () {
+  const NS = "exam_app:v1:";
+  const k = (s) => NS + s;
+  const read = (key, fb) => {
+    try { const v = localStorage.getItem(k(key)); return v ? JSON.parse(v) : fb; }
+    catch (e) { return fb; }
+  };
+  const write = (key, val) => { try { localStorage.setItem(k(key), JSON.stringify(val)); } catch (e) {} };
+
+  const emailKey = (email) => (email || "").trim().toLowerCase();
+
+  const Store = {
+    getUsers() { return read("users", {}); },
+    getSession() { return read("session", null); },
+    setSession(email) { write("session", emailKey(email)); },
+    logout() { try { localStorage.removeItem(k("session")); } catch (e) {} },
+
+    currentUser() {
+      const s = this.getSession();
+      if (!s) return null;
+      const u = this.getUsers()[s];
+      return u || null;
+    },
+
+    registerOrLogin(email, nickname) {
+      const e = emailKey(email);
+      const users = this.getUsers();
+      if (!users[e]) {
+        users[e] = {
+          email: e,
+          nickname: (nickname || "").trim() || ("匿名考生-" + Math.random().toString(36).slice(2, 6).toUpperCase()),
+          anonId: "U-" + Math.random().toString(36).slice(2, 8).toUpperCase(),
+          createdAt: Date.now(),
+        };
+        write("users", users);
+      } else if (nickname && nickname.trim() && nickname.trim() !== users[e].nickname) {
+        users[e].nickname = nickname.trim();
+        write("users", users);
+      }
+      this.setSession(e);
+      return users[e];
+    },
+
+    drawExam(n) {
+      const bank = (window.QUESTION_BANK || []).slice();
+      for (let i = bank.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [bank[i], bank[j]] = [bank[j], bank[i]];
+      }
+      return bank.slice(0, Math.min(n, bank.length));
+    },
+
+    drawByIds(ids) {
+      const map = {};
+      (window.QUESTION_BANK || []).forEach((q) => { map[q.id] = q; });
+      const list = ids.map((id) => map[id]).filter(Boolean);
+      for (let i = list.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [list[i], list[j]] = [list[j], list[i]];
+      }
+      return list;
+    },
+
+    _recKey(email) { return "records:" + emailKey(email); },
+    getRecords(email) { return read(this._recKey(email), []); },
+
+    addRecord(email, record) {
+      const items = record.items || [];
+      const correct = items.filter((it) => it.picked === it.answer).length;
+      const total = items.length;
+      const full = {
+        id: "R-" + Date.now().toString(36).toUpperCase(),
+        mode: record.mode || "exam",
+        startedAt: record.startedAt,
+        finishedAt: record.finishedAt || Date.now(),
+        durationSec: Math.max(0, Math.round(((record.finishedAt || Date.now()) - record.startedAt) / 1000)),
+        correct, total,
+        score: total ? Math.round((correct / total) * 100) : 0,
+        flaggedCount: items.filter((it) => it.flagged).length,
+        items,
+      };
+      const recs = this.getRecords(email);
+      recs.unshift(full);
+      write(this._recKey(email), recs);
+      if (window.CloudStore) {
+        window.CloudStore.saveRecord(email, full).catch(function (e) {
+          console.warn('[CloudStore] 儲存紀錄失敗:', e.message);
+        });
+      }
+      return full;
+    },
+
+    getWrongBook(email) {
+      const recs = this.getRecords(email);
+      const map = {};
+      const bank = {};
+      (window.QUESTION_BANK || []).forEach((q) => { bank[q.id] = q; });
+
+      const ordered = recs.slice().sort((a, b) => a.finishedAt - b.finishedAt);
+      ordered.forEach((r) => {
+        (r.items || []).forEach((it) => {
+          if (it.picked !== it.answer && it.picked != null) {
+            const base = bank[it.qid];
+            if (!base) return;
+            if (!map[it.qid]) {
+              map[it.qid] = { ...base, count: 0, lastWrongAt: 0, lastPicked: null };
+            }
+            map[it.qid].count += 1;
+            map[it.qid].lastWrongAt = r.finishedAt;
+            map[it.qid].lastPicked = it.picked;
+          }
+        });
+      });
+
+      return Object.values(map).sort((a, b) =>
+        b.count - a.count || b.lastWrongAt - a.lastWrongAt
+      );
+    },
+
+    stats(email) {
+      const recs = this.getRecords(email);
+      const exams = recs.filter((r) => r.mode === "exam");
+      const best = exams.reduce((m, r) => Math.max(m, r.score), 0);
+      const avg = exams.length ? Math.round(exams.reduce((s, r) => s + r.score, 0) / exams.length) : 0;
+      return {
+        totalExams: exams.length,
+        totalAttempts: recs.length,
+        best, avg,
+        last: recs[0] || null,
+        wrongUnique: this.getWrongBook(email).length,
+      };
+    },
+
+    _overwriteRecords(email, records) {
+      if (Array.isArray(records) && records.length > 0) {
+        write(this._recKey(email), records);
+      }
+    },
+  };
+
+  window.ExamStore = Store;
+})();
+
+/* ============================================================
+   Tweaks Panel
+   ============================================================ */
+function useTweaks(defaults) {
+  const [values, setValues] = React.useState(defaults);
+  const setTweak = React.useCallback((keyOrEdits, val) => {
+    const edits = typeof keyOrEdits === 'object' && keyOrEdits !== null
+      ? keyOrEdits : { [keyOrEdits]: val };
+    setValues((prev) => ({ ...prev, ...edits }));
+    window.parent.postMessage({ type: '__edit_mode_set_keys', edits }, '*');
+    window.dispatchEvent(new CustomEvent('tweakchange', { detail: edits }));
+  }, []);
+  return [values, setTweak];
+}
+
+function TweaksPanel({ title = 'Tweaks', children }) {
+  const [open, setOpen] = React.useState(false);
+  const dragRef = React.useRef(null);
+  const offsetRef = React.useRef({ x: 16, y: 16 });
+  const PAD = 16;
+
+  const clampToViewport = React.useCallback(() => {
+    const panel = dragRef.current;
+    if (!panel) return;
+    const w = panel.offsetWidth, h = panel.offsetHeight;
+    const maxRight = Math.max(PAD, window.innerWidth - w - PAD);
+    const maxBottom = Math.max(PAD, window.innerHeight - h - PAD);
+    offsetRef.current = {
+      x: Math.min(maxRight, Math.max(PAD, offsetRef.current.x)),
+      y: Math.min(maxBottom, Math.max(PAD, offsetRef.current.y)),
+    };
+    panel.style.right = offsetRef.current.x + 'px';
+    panel.style.bottom = offsetRef.current.y + 'px';
+  }, []);
+
+  React.useEffect(() => {
+    if (!open) return;
+    clampToViewport();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(clampToViewport) : null;
+    if (ro) { ro.observe(document.documentElement); return () => ro.disconnect(); }
+    window.addEventListener('resize', clampToViewport);
+    return () => window.removeEventListener('resize', clampToViewport);
+  }, [open, clampToViewport]);
+
+  React.useEffect(() => {
+    const onMsg = (e) => {
+      const t = e?.data?.type;
+      if (t === '__activate_edit_mode') setOpen(true);
+      else if (t === '__deactivate_edit_mode') setOpen(false);
+    };
+    window.addEventListener('message', onMsg);
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+    return () => window.removeEventListener('message', onMsg);
+  }, []);
+
+  const dismiss = () => {
+    setOpen(false);
+    window.parent.postMessage({ type: '__edit_mode_dismissed' }, '*');
+  };
+
+  const onDragStart = (e) => {
+    const panel = dragRef.current;
+    if (!panel) return;
+    const r = panel.getBoundingClientRect();
+    const sx = e.clientX, sy = e.clientY;
+    const startRight = window.innerWidth - r.right;
+    const startBottom = window.innerHeight - r.bottom;
+    const move = (ev) => {
+      offsetRef.current = { x: startRight - (ev.clientX - sx), y: startBottom - (ev.clientY - sy) };
+      clampToViewport();
+    };
+    const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  };
+
+  if (!open) return null;
+  return (
+    <div ref={dragRef} className="twk-panel" data-omelette-chrome=""
+         style={{ right: offsetRef.current.x, bottom: offsetRef.current.y }}>
+      <div className="twk-hd" onMouseDown={onDragStart}>
+        <b>{title}</b>
+        <button className="twk-x" aria-label="Close tweaks"
+                onMouseDown={(e) => e.stopPropagation()} onClick={dismiss}>✕</button>
+      </div>
+      <div className="twk-body">{children}</div>
+    </div>
+  );
+}
+
+function TweakSection({ label }) {
+  return <div className="twk-sect">{label}</div>;
+}
+
+function TweakRow({ label, value, children, inline = false }) {
+  return (
+    <div className={inline ? 'twk-row twk-row-h' : 'twk-row'}>
+      <div className="twk-lbl">
+        <span>{label}</span>
+        {value != null && <span className="twk-val">{value}</span>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function TweakSlider({ label, value, min = 0, max = 100, step = 1, unit = '', onChange }) {
+  return (
+    <TweakRow label={label} value={`${value}${unit}`}>
+      <input type="range" className="twk-slider" min={min} max={max} step={step}
+             value={value} onChange={(e) => onChange(Number(e.target.value))} />
+    </TweakRow>
+  );
+}
+
+function TweakToggle({ label, value, onChange }) {
+  return (
+    <div className="twk-row twk-row-h">
+      <div className="twk-lbl"><span>{label}</span></div>
+      <button type="button" className="twk-toggle" data-on={value ? '1' : '0'}
+              role="switch" aria-checked={!!value}
+              onClick={() => onChange(!value)}><i /></button>
+    </div>
+  );
+}
+
+function TweakSelect({ label, value, options, onChange }) {
+  return (
+    <TweakRow label={label}>
+      <select className="twk-field" value={value} onChange={(e) => onChange(e.target.value)}>
+        {options.map((o) => {
+          const v = typeof o === 'object' ? o.value : o;
+          const l = typeof o === 'object' ? o.label : o;
+          return <option key={v} value={v}>{l}</option>;
+        })}
+      </select>
+    </TweakRow>
+  );
+}
+
+function TweakRadio({ label, value, options, onChange }) {
+  const trackRef = React.useRef(null);
+  const [dragging, setDragging] = React.useState(false);
+  const valueRef = React.useRef(value);
+  valueRef.current = value;
+
+  const labelLen = (o) => String(typeof o === 'object' ? o.label : o).length;
+  const maxLen = options.reduce((m, o) => Math.max(m, labelLen(o)), 0);
+  const fitsAsSegments = maxLen <= ({ 2: 16, 3: 10 }[options.length] ?? 0);
+
+  if (!fitsAsSegments) {
+    return <TweakSelect label={label} value={value} options={options}
+                        onChange={(s) => {
+                          const m = options.find((o) => String(typeof o === 'object' ? o.value : o) === s);
+                          onChange(m === undefined ? s : typeof m === 'object' ? m.value : m);
+                        }} />;
+  }
+  const opts = options.map((o) => (typeof o === 'object' ? o : { value: o, label: o }));
+  const idx = Math.max(0, opts.findIndex((o) => o.value === value));
+  const n = opts.length;
+
+  const segAt = (clientX) => {
+    const r = trackRef.current.getBoundingClientRect();
+    const inner = r.width - 4;
+    const i = Math.floor(((clientX - r.left - 2) / inner) * n);
+    return opts[Math.max(0, Math.min(n - 1, i))].value;
+  };
+
+  const onPointerDown = (e) => {
+    setDragging(true);
+    const v0 = segAt(e.clientX);
+    if (v0 !== valueRef.current) onChange(v0);
+    const move = (ev) => { if (!trackRef.current) return; const v = segAt(ev.clientX); if (v !== valueRef.current) onChange(v); };
+    const up = () => { setDragging(false); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+
+  return (
+    <TweakRow label={label}>
+      <div ref={trackRef} role="radiogroup" onPointerDown={onPointerDown}
+           className={dragging ? 'twk-seg dragging' : 'twk-seg'}>
+        <div className="twk-seg-thumb"
+             style={{ left: `calc(2px + ${idx} * (100% - 4px) / ${n})`, width: `calc((100% - 4px) / ${n})` }} />
+        {opts.map((o) => (
+          <button key={o.value} type="button" role="radio" aria-checked={o.value === value}>{o.label}</button>
+        ))}
+      </div>
+    </TweakRow>
+  );
+}
+
+function TweakColor({ label, value, options, onChange }) {
+  const key = (o) => String(JSON.stringify(o)).toLowerCase();
+  const cur = key(value);
+  const __twkIsLight = (hex) => {
+    const h = String(hex).replace('#', '');
+    const x = h.length === 3 ? h.replace(/./g, (c) => c + c) : h.padEnd(6, '0');
+    const n = parseInt(x.slice(0, 6), 16);
+    if (Number.isNaN(n)) return true;
+    const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    return r * 299 + g * 587 + b * 114 > 148000;
+  };
+  return (
+    <TweakRow label={label}>
+      <div className="twk-chips" role="radiogroup">
+        {options.map((o, i) => {
+          const colors = Array.isArray(o) ? o : [o];
+          const [hero, ...rest] = colors;
+          const on = key(o) === cur;
+          return (
+            <button key={i} type="button" className="twk-chip" role="radio"
+                    aria-checked={on} data-on={on ? '1' : '0'}
+                    style={{ background: hero }}
+                    onClick={() => onChange(o)}>
+              {rest.length > 0 && <span>{rest.slice(0, 4).map((c, j) => <i key={j} style={{ background: c, display: 'block', flex: 1, boxShadow: j > 0 ? '0 -1px 0 rgba(0,0,0,.1)' : 'none' }} />)}</span>}
+              {on && (
+                <svg viewBox="0 0 14 14" style={{ position: 'absolute', top: 6, left: 6, width: 13, height: 13, filter: 'drop-shadow(0 1px 1px rgba(0,0,0,.3))' }} aria-hidden="true">
+                  <path d="M3 7.2 5.8 10 11 4.2" fill="none" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" stroke={__twkIsLight(hero) ? 'rgba(0,0,0,.78)' : '#fff'} />
+                </svg>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </TweakRow>
+  );
+}
+
+/* ============================================================
+   共用元件
+   ============================================================ */
+function Icon({ name, size = 18, stroke = 1.6, style }) {
+  const P = {
+    check: <polyline points="3.5 9.5 7.5 13.5 14.5 5" />,
+    x: <g><line x1="4" y1="4" x2="14" y2="14" /><line x1="14" y1="4" x2="4" y2="14" /></g>,
+    flag: <g><line x1="4.5" y1="2.5" x2="4.5" y2="15.5" /><path d="M4.5 3.2 H13 l-2 2.6 2 2.6 H4.5 Z" /></g>,
+    arrowR: <g><line x1="3" y1="9" x2="14" y2="9" /><polyline points="10 5 14 9 10 13" /></g>,
+    arrowL: <g><line x1="15" y1="9" x2="4" y2="9" /><polyline points="8 5 4 9 8 13" /></g>,
+    list: <g><line x1="6" y1="5" x2="15" y2="5" /><line x1="6" y1="9" x2="15" y2="9" /><line x1="6" y1="13" x2="15" y2="13" /><circle cx="3" cy="5" r="0.6" /><circle cx="3" cy="9" r="0.6" /><circle cx="3" cy="13" r="0.6" /></g>,
+    clock: <g><circle cx="9" cy="9" r="6.5" /><polyline points="9 5 9 9 12 11" /></g>,
+    doc: <g><path d="M5 2.5 h6 l3 3 v10 h-9 Z" /><line x1="6.5" y1="9" x2="11.5" y2="9" /><line x1="6.5" y1="12" x2="11.5" y2="12" /></g>,
+    history: <g><path d="M3 9 a6 6 0 1 1 1.8 4.3" /><polyline points="3 13 3 9 7 9" /><polyline points="9 6 9 9 11.5 10.5" /></g>,
+    again: <g><path d="M14.5 9 a5.5 5.5 0 1 1 -1.7-4" /><polyline points="14.5 2.5 14.5 5.5 11.5 5.5" /></g>,
+    user: <g><circle cx="9" cy="6" r="3" /><path d="M3.5 15.5 a5.5 5.5 0 0 1 11 0" /></g>,
+    logout: <g><path d="M7 3.5 H3.5 v11 H7" /><line x1="7" y1="9" x2="15" y2="9" /><polyline points="12 6 15 9 12 12" /></g>,
+    spark: <g><path d="M9 2.5 l1.6 4.9 4.9 1.6 -4.9 1.6 -1.6 4.9 -1.6-4.9 -4.9-1.6 4.9-1.6 Z" /></g>,
+    target: <g><circle cx="9" cy="9" r="6.5" /><circle cx="9" cy="9" r="3" /><circle cx="9" cy="9" r="0.4" /></g>,
+    trophy: <g><path d="M5 3 h8 v3 a4 4 0 0 1-8 0 Z" /><path d="M5 3.5 H3 a2 2 0 0 0 2 2.5" /><path d="M13 3.5 H15 a2 2 0 0 1-2 2.5" /><line x1="9" y1="10" x2="9" y2="13" /><line x1="6.5" y1="15.5" x2="11.5" y2="15.5" /><line x1="9" y1="13" x2="9" y2="15.5" /></g>,
+  };
+  return (
+    <svg width={size} height={size} viewBox="0 0 18 18" fill="none"
+      stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round"
+      style={{ flex: "none", ...style }} aria-hidden="true">
+      {P[name] || null}
+    </svg>
+  );
+}
+
+function Brand({ size = "md" }) {
+  const big = size === "lg";
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: big ? 14 : 10 }}>
+      <div style={{
+        width: big ? 40 : 30, height: big ? 40 : 30, borderRadius: 6,
+        border: "1px solid var(--accent)", color: "var(--accent)",
+        display: "grid", placeItems: "center", flex: "none",
+        fontFamily: "var(--font-serif)", fontWeight: 600, fontSize: big ? 21 : 16,
+        background: "var(--accent-soft)",
+      }}>科</div>
+      <div style={{ lineHeight: 1.1 }}>
+        <div className="serif" style={{ fontSize: big ? 22 : 17, fontWeight: 600, letterSpacing: "0.01em" }}>擬真考場</div>
+        <div className="mono" style={{ fontSize: big ? 11 : 10, color: "var(--ink-mute)", letterSpacing: "0.14em" }}>MOCK&nbsp;EXAM&nbsp;HALL</div>
+      </div>
+    </div>
+  );
+}
+
+function ScoreRing({ value = 0, size = 132, stroke = 9, label, sub, tone }) {
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const off = c * (1 - Math.max(0, Math.min(100, value)) / 100);
+  const color = tone || (value >= 80 ? "var(--correct)" : value >= 60 ? "var(--accent)" : "var(--wrong)");
+  return (
+    <div style={{ position: "relative", width: size, height: size, flex: "none" }}>
+      <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--line)" strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke}
+          strokeLinecap="round" strokeDasharray={c} strokeDashoffset={off}
+          style={{ transition: "stroke-dashoffset 1.1s cubic-bezier(.2,.7,.3,1)" }} />
+      </svg>
+      <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", textAlign: "center" }}>
+        <div>
+          <div className="serif" style={{ fontSize: size * 0.34, fontWeight: 600, lineHeight: 1 }}>{label != null ? label : value}</div>
+          {sub && <div className="mono" style={{ fontSize: 11, color: "var(--ink-mute)", marginTop: 4, letterSpacing: "0.08em" }}>{sub}</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Stat({ icon, label, value, sub }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 7, color: "var(--ink-mute)" }}>
+        {icon && <Icon name={icon} size={15} />}
+        <span className="label" style={{ fontSize: 11.5 }}>{label}</span>
+      </div>
+      <div className="serif" style={{ fontSize: 30, fontWeight: 600, lineHeight: 1 }}>{value}</div>
+      {sub && <div className="mono" style={{ fontSize: 11, color: "var(--ink-mute)" }}>{sub}</div>}
+    </div>
+  );
+}
+
+function EmptyState({ icon = "doc", title, desc, action }) {
+  return (
+    <div style={{ textAlign: "center", padding: "56px 24px", color: "var(--ink-mute)" }}>
+      <div style={{ display: "inline-grid", placeItems: "center", width: 56, height: 56, borderRadius: 12, border: "1px solid var(--line)", color: "var(--ink-mute)", marginBottom: 16 }}>
+        <Icon name={icon} size={24} />
+      </div>
+      <h3 className="serif" style={{ fontSize: 19, color: "var(--ink)", marginBottom: 6 }}>{title}</h3>
+      {desc && <p style={{ fontSize: 14, maxWidth: 360, margin: "0 auto 18px" }}>{desc}</p>}
+      {action}
+    </div>
+  );
+}
+
+function PageHeader({ user, onNav, onLogout, active }) {
+  const items = [
+    { key: "dashboard", label: "首頁", icon: "spark" },
+    { key: "records", label: "考試紀錄", icon: "history" },
+    { key: "wrong", label: "錯題本", icon: "again" },
+  ];
+  return (
+    <header style={{
+      borderBottom: "1px solid var(--line-soft)", background: "var(--bg)",
+      position: "sticky", top: 0, zIndex: 20, backdropFilter: "blur(8px)",
+    }}>
+      <div style={{ maxWidth: "var(--maxw)", margin: "0 auto", padding: "14px 24px", display: "flex", alignItems: "center", gap: 20, justifyContent: "space-between" }}>
+        <button className="btn-ghost" onClick={() => onNav("dashboard")} style={{ border: 0, background: "none", padding: 0, cursor: "pointer" }}>
+          <Brand />
+        </button>
+        <nav style={{ display: "flex", gap: 4, flex: 1, justifyContent: "center" }}>
+          {items.map((it) => (
+            <button key={it.key} onClick={() => onNav(it.key)}
+              style={{
+                border: 0, background: active === it.key ? "var(--panel-2)" : "transparent",
+                color: active === it.key ? "var(--ink)" : "var(--ink-mute)",
+                padding: "8px 14px", borderRadius: 6, fontSize: 14, fontWeight: 500,
+                display: "flex", alignItems: "center", gap: 7, cursor: "pointer", transition: "color .15s, background .15s",
+              }}>
+              <Icon name={it.icon} size={15} /> {it.label}
+            </button>
+          ))}
+        </nav>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ textAlign: "right", lineHeight: 1.2 }} className="hide-sm">
+            <div style={{ fontSize: 13.5, fontWeight: 600 }}>{user?.nickname}</div>
+            <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-mute)" }}>{user?.anonId}</div>
+          </div>
+          <button className="btn btn-ghost" onClick={onLogout} title="登出" style={{ padding: "8px 10px" }}>
+            <Icon name="logout" size={16} />
+          </button>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+/* ============================================================
+   Auth Screen
+   ============================================================ */
+function AuthScreen({ onAuthed, syncing }) {
+  const [email, setEmail] = React.useState("");
+  const [nickname, setNickname] = React.useState("");
+  const [err, setErr] = React.useState("");
+  const [touched, setTouched] = React.useState(false);
+
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const bankSize = (window.QUESTION_BANK || []).length;
+
+  const submit = (e) => {
+    e.preventDefault();
+    setTouched(true);
+    if (!emailOk) { setErr("請輸入有效的 email 位址"); return; }
+    const user = window.ExamStore.registerOrLogin(email, nickname);
+    onAuthed(user);
+  };
+
+  const returning = !!(window.ExamStore.getUsers()[email.trim().toLowerCase()]);
+
+  return (
+    <div style={{ minHeight: "100vh", display: "grid", gridTemplateColumns: "1.05fr 1fr" }} className="auth-grid">
+      <aside className="auth-aside" style={{
+        background: "var(--bg-2)", borderRight: "1px solid var(--line-soft)",
+        padding: "56px 56px", display: "flex", flexDirection: "column", justifyContent: "space-between",
+        position: "relative", overflow: "hidden",
+      }}>
+        <Brand size="lg" />
+        <div style={{ maxWidth: 460 }}>
+          <div className="mono" style={{ fontSize: 12, letterSpacing: "0.2em", color: "var(--accent)", marginBottom: 22 }}>
+            淡江大學 115 年品管測驗
+          </div>
+          <h1 className="serif" style={{ fontSize: "clamp(30px, 3.4vw, 46px)", lineHeight: 1.15, letterSpacing: "-0.02em" }}>
+            每一次模擬，<br />都是正式的演練。
+          </h1>
+          <p style={{ marginTop: 22, fontSize: 16, color: "var(--ink-soft)", lineHeight: 1.7, maxWidth: 420 }}>
+            從題庫隨機抽考 100 題，作答可標註不確定、完卷後即時對分。
+            所有成績與錯題僅你本人可見，並依錯誤次數整理成個人化錯題本。
+          </p>
+          <div style={{ display: "flex", gap: 28, marginTop: 36 }}>
+            {[[bankSize.toLocaleString(), "題庫題數"], ["100", "每場抽考"], ["∞", "可重複應試"]].map(([n, l]) => (
+              <div key={l}>
+                <div className="serif" style={{ fontSize: 28, fontWeight: 600 }}>{n}</div>
+                <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-mute)", letterSpacing: "0.08em", marginTop: 2 }}>{l}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="mono" style={{ fontSize: 11, color: "var(--ink-mute)", letterSpacing: "0.06em" }}>
+          {window.CloudStore ? "帳號紀錄同步至 Firebase 雲端" : "資料僅儲存於本機"} · 模擬帳號系統
+        </div>
+        <div aria-hidden="true" style={{ position: "absolute", right: -120, top: "50%", transform: "translateY(-50%)", width: 360, height: 360, borderRadius: "50%", border: "1px solid var(--line-soft)" }} />
+        <div aria-hidden="true" style={{ position: "absolute", right: -60, top: "50%", transform: "translateY(-50%)", width: 220, height: 220, borderRadius: "50%", border: "1px solid var(--line-soft)" }} />
+      </aside>
+
+      <main style={{ display: "grid", placeItems: "center", padding: "40px 28px" }}>
+        <form onSubmit={submit} className="rise" style={{ width: "100%", maxWidth: 380 }}>
+          <div className="auth-brand-sm" style={{ marginBottom: 28, display: "none" }}><Brand /></div>
+          <h2 className="serif" style={{ fontSize: 26, marginBottom: 6 }}>進入考場</h2>
+          <p style={{ fontSize: 14, color: "var(--ink-mute)", marginBottom: 28 }}>
+            以 email 識別身分、匿名暱稱應試。同一 email 將沿用既有成績紀錄。
+          </p>
+
+          <label className="label" htmlFor="email">Email 位址</label>
+          <input id="email" className="input" type="email" inputMode="email" autoComplete="email"
+            placeholder="you@example.com" value={email}
+            onChange={(e) => { setEmail(e.target.value); setErr(""); }}
+            onBlur={() => setTouched(true)}
+            style={{ marginTop: 7, marginBottom: 4, borderColor: touched && !emailOk && email ? "var(--wrong)" : undefined }} />
+          <div style={{ minHeight: 18, marginBottom: 14 }}>
+            {touched && email && !emailOk && <span style={{ fontSize: 12, color: "var(--wrong)" }}>請輸入有效的 email</span>}
+            {emailOk && returning && <span style={{ fontSize: 12, color: "var(--correct)" }}>歡迎回來，將載入你的紀錄</span>}
+          </div>
+
+          <label className="label" htmlFor="nick">匿名暱稱 <span style={{ textTransform: "none", color: "var(--ink-mute)", fontWeight: 400 }}>（選填）</span></label>
+          <input id="nick" className="input" type="text" maxLength={20}
+            placeholder="例如：夜讀生 / Aspirant" value={nickname}
+            onChange={(e) => setNickname(e.target.value)}
+            style={{ marginTop: 7, marginBottom: 8 }} />
+          <p style={{ fontSize: 12, color: "var(--ink-mute)", marginBottom: 26 }}>
+            留空將自動產生匿名代號，你的 email 不會對外顯示。
+          </p>
+
+          {err && <div style={{ fontSize: 13, color: "var(--wrong)", marginBottom: 14 }}>{err}</div>}
+
+          <button type="submit" className="btn btn-primary btn-lg" style={{ width: "100%", justifyContent: "center" }} disabled={!emailOk || syncing}>
+            {syncing ? "同步雲端紀錄中…" : returning ? "登入並繼續" : "註冊並進入"} <Icon name="arrowR" size={16} />
+          </button>
+
+          <p className="mono" style={{ fontSize: 10.5, color: "var(--ink-mute)", textAlign: "center", marginTop: 18, letterSpacing: "0.04em" }}>
+            繼續即表示同意以匿名方式進行模擬測驗
+          </p>
+        </form>
+      </main>
+    </div>
+  );
+}
+
+/* ============================================================
+   Dashboard
+   ============================================================ */
+function Dashboard({ user, onStartExam, onPractice, onNav, savedExam, onResume, onDiscardSaved }) {
+  const stats = window.ExamStore.stats(user.email);
+  const recent = window.ExamStore.getRecords(user.email).slice(0, 4);
+  const wrong = window.ExamStore.getWrongBook(user.email);
+  const bankSize = (window.QUESTION_BANK || []).length;
+  const hour = new Date().getHours();
+  const greet = hour < 6 ? "夜深了" : hour < 12 ? "早安" : hour < 18 ? "午安" : "晚安";
+
+  const fmtDate = (t) => {
+    const d = new Date(t);
+    return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  };
+
+  return (
+    <div style={{ maxWidth: "var(--maxw)", margin: "0 auto", padding: "40px 24px 80px" }} className="rise">
+      <div style={{ marginBottom: 32 }}>
+        <div className="mono" style={{ fontSize: 12, color: "var(--ink-mute)", letterSpacing: "0.1em" }}>{greet.toUpperCase()}</div>
+        <h1 className="serif" style={{ fontSize: "clamp(26px,3vw,36px)", marginTop: 6 }}>
+          {greet}，{user.nickname}
+        </h1>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 20 }} className="dash-top">
+        <div className="card" style={{ padding: 32, display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: 230, position: "relative", overflow: "hidden" }}>
+          <div>
+            <span className="tag">模擬測驗</span>
+            <h2 className="serif" style={{ fontSize: 30, marginTop: 16, lineHeight: 1.2 }}>從題庫隨機抽考<br />100 題</h2>
+            <p style={{ color: "var(--ink-soft)", fontSize: 15, marginTop: 12, maxWidth: 420, lineHeight: 1.6 }}>
+              單選作答，選後須按「下一題」前進；可隨時標註不確定並快速導航。完卷送出後即時計分。
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: 12, marginTop: 24, alignItems: "center", flexWrap: "wrap" }}>
+            <button className="btn btn-primary btn-lg" onClick={onStartExam}>
+              <Icon name="spark" size={16} /> 開始抽考
+            </button>
+            <span className="mono" style={{ fontSize: 12, color: "var(--ink-mute)", whiteSpace: "nowrap" }}>
+              約 60–90 分鐘 · 100 題 / {bankSize.toLocaleString()} 題庫
+            </span>
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: 28, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 18 }}>
+          {stats.totalExams > 0 ? (
+            <>
+              <ScoreRing value={stats.best} size={128} label={stats.best} sub="最佳分數" />
+              <div style={{ display: "flex", gap: 26, textAlign: "center" }}>
+                <div><div className="serif" style={{ fontSize: 22, fontWeight: 600 }}>{stats.avg}</div><div className="mono" style={{ fontSize: 10.5, color: "var(--ink-mute)" }}>平均</div></div>
+                <div style={{ width: 1, background: "var(--line-soft)" }} />
+                <div><div className="serif" style={{ fontSize: 22, fontWeight: 600 }}>{stats.totalExams}</div><div className="mono" style={{ fontSize: 10.5, color: "var(--ink-mute)" }}>應試次數</div></div>
+              </div>
+            </>
+          ) : (
+            <div style={{ textAlign: "center", color: "var(--ink-mute)" }}>
+              <ScoreRing value={0} size={128} label="—" sub="尚無成績" tone="var(--line)" />
+              <p style={{ fontSize: 13, marginTop: 14 }}>完成第一場模擬後<br />這裡會顯示你的成績</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {savedExam && (
+        <div className="card" style={{ padding: "20px 24px", marginTop: 20, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap", borderColor: "var(--accent)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <div style={{ display: "grid", placeItems: "center", width: 44, height: 44, borderRadius: 10, background: "var(--accent-soft)", color: "var(--accent)", flex: "none" }}>
+              <Icon name="doc" size={22} />
+            </div>
+            <div>
+              <div className="serif" style={{ fontSize: 18 }}>
+                有一份{savedExam.mode === "practice" ? "錯題重練" : "模擬抽考"}尚未完成
+              </div>
+              <div style={{ fontSize: 13, color: "var(--ink-mute)" }}>
+                已作答 {Object.keys(savedExam.answers || {}).length} / {(savedExam.questions || []).length} 題 · 離開前自動儲存
+              </div>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button className="btn" onClick={onDiscardSaved} style={{ color: "var(--ink-mute)" }}>放棄此份</button>
+            <button className="btn btn-primary" onClick={onResume}>
+              <Icon name="arrowR" size={15} /> 繼續考試
+            </button>
+          </div>
+        </div>
+      )}
+
+      {wrong.length > 0 && (
+        <div className="card" style={{ padding: "20px 24px", marginTop: 20, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <div style={{ display: "grid", placeItems: "center", width: 44, height: 44, borderRadius: 10, background: "var(--wrong-soft)", color: "var(--wrong)", flex: "none" }}>
+              <Icon name="target" size={22} />
+            </div>
+            <div>
+              <div className="serif" style={{ fontSize: 18 }}>你有 {wrong.length} 道錯題待克服</div>
+              <div style={{ fontSize: 13, color: "var(--ink-mute)" }}>針對最常答錯的題目重新練習，鞏固弱點。</div>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button className="btn" onClick={() => onNav("wrong")}>查看錯題本</button>
+            <button className="btn btn-primary" onClick={() => onPractice(wrong.slice(0, 20).map((w) => w.id))}>
+              <Icon name="again" size={15} /> 重練前 20 題
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="card stat-row" style={{ padding: "26px 30px", marginTop: 20, display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 24 }}>
+        <Stat icon="trophy" label="最佳分數" value={stats.totalExams ? stats.best : "—"} sub="滿分 100" />
+        <Stat icon="target" label="平均分數" value={stats.totalExams ? stats.avg : "—"} sub={`${stats.totalExams} 次模擬`} />
+        <Stat icon="doc" label="累計應試" value={stats.totalAttempts} sub="含錯題重練" />
+        <Stat icon="again" label="待克服錯題" value={stats.wrongUnique} sub="不重複題數" />
+      </div>
+
+      <div style={{ marginTop: 40, display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <h2 className="serif" style={{ fontSize: 20 }}>最近的考試</h2>
+        {recent.length > 0 && <button className="btn btn-ghost" onClick={() => onNav("records")}>查看全部 <Icon name="arrowR" size={14} /></button>}
+      </div>
+      {recent.length === 0 ? (
+        <div className="card"><EmptyState icon="history" title="尚無考試紀錄" desc="開始你的第一場模擬抽考，成績會記錄在這裡，僅你本人可見。"
+          action={<button className="btn btn-primary" onClick={onStartExam}>開始抽考</button>} /></div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {recent.map((r) => (
+            <div key={r.id} className="card" style={{ padding: "16px 22px", display: "flex", alignItems: "center", gap: 18 }}>
+              <ScoreRing value={r.score} size={54} stroke={5} label={r.score} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span className="serif" style={{ fontSize: 16 }}>{r.mode === "practice" ? "錯題重練" : "模擬抽考"}</span>
+                  {r.mode === "practice" && <span className="tag">PRACTICE</span>}
+                </div>
+                <div className="mono" style={{ fontSize: 12, color: "var(--ink-mute)", marginTop: 3 }}>
+                  {fmtDate(r.finishedAt)} · 答對 {r.correct}/{r.total} · 用時 {Math.floor(r.durationSec / 60)} 分
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ============================================================
+   Exam
+   ============================================================ */
+const LETTERS = ["A", "B", "C", "D", "E"];
+
+function Exam({ user, exam, onSubmit, onExit }) {
+  const activeKey = "exam_app:v1:active:" + user.email;
+  const saved = (() => {
+    try { const v = JSON.parse(localStorage.getItem(activeKey)); return v && v.examId === exam.examId ? v : null; } catch (e) { return null; }
+  })();
+
+  const [idx, setIdx] = React.useState(saved?.idx || 0);
+  const [answers, setAnswers] = React.useState(saved?.answers || {});
+  const [flags, setFlags] = React.useState(saved?.flags || {});
+  const [navOpen, setNavOpen] = React.useState(false);
+  const [confirm, setConfirm] = React.useState(false);
+  const [elapsed, setElapsed] = React.useState(Math.round((Date.now() - exam.startedAt) / 1000));
+  const mainRef = React.useRef(null);
+
+  const qs = exam.questions;
+  const total = qs.length;
+  const q = qs[idx];
+  const answeredCount = Object.keys(answers).length;
+  const flaggedList = qs.map((qq, i) => ({ ...qq, i })).filter((qq) => flags[qq.id]);
+
+  React.useEffect(() => {
+    const t = setInterval(() => setElapsed(Math.round((Date.now() - exam.startedAt) / 1000)), 1000);
+    return () => clearInterval(t);
+  }, [exam.startedAt]);
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem(activeKey, JSON.stringify({
+        examId: exam.examId, mode: exam.mode, startedAt: exam.startedAt,
+        questions: qs, idx, answers, flags,
+      }));
+    } catch (e) {}
+  }, [idx, answers, flags]);
+
+  const pick = (qid, optIdx) => setAnswers((a) => ({ ...a, [qid]: optIdx }));
+  const toggleFlag = (qid) => setFlags((f) => { const n = { ...f }; if (n[qid]) delete n[qid]; else n[qid] = true; return n; });
+  const goto = (i) => { setIdx(Math.max(0, Math.min(total - 1, i))); setNavOpen(false); if (mainRef.current) mainRef.current.scrollTop = 0; };
+
+  React.useEffect(() => {
+    const h = (e) => {
+      if (confirm) return;
+      if (e.key >= "1" && e.key <= String(q.opts.length)) pick(q.id, parseInt(e.key, 10) - 1);
+      else if (e.key === "ArrowRight" && idx < total - 1) goto(idx + 1);
+      else if (e.key === "ArrowLeft" && idx > 0) goto(idx - 1);
+      else if (e.key.toLowerCase() === "f") toggleFlag(q.id);
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [idx, q, confirm, total]);
+
+  const finalize = () => {
+    try { localStorage.removeItem(activeKey); } catch (e) {}
+    const items = qs.map((qq) => ({
+      qid: qq.id, topic: qq.topic, answer: qq.a,
+      picked: answers[qq.id] != null ? answers[qq.id] : null,
+      flagged: !!flags[qq.id],
+    }));
+    const rec = window.ExamStore.addRecord(user.email, {
+      mode: exam.mode, startedAt: exam.startedAt, finishedAt: Date.now(), items,
+    });
+    onSubmit(rec);
+  };
+
+  const mmss = `${String(Math.floor(elapsed / 60)).padStart(2, "0")}:${String(elapsed % 60).padStart(2, "0")}`;
+  const isLast = idx === total - 1;
+
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+      <header style={{ position: "sticky", top: 0, zIndex: 30, background: "var(--bg)", borderBottom: "1px solid var(--line-soft)" }}>
+        <div style={{ maxWidth: 1320, margin: "0 auto", padding: "12px 22px", display: "flex", alignItems: "center", gap: 18 }}>
+          <button className="btn btn-ghost" onClick={onExit} style={{ padding: "8px 12px" }} title="離開（進度已保存）">
+            <Icon name="arrowL" size={16} /> <span className="hide-sm">離開</span>
+          </button>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+              <span className="mono" style={{ fontSize: 12, color: "var(--ink-soft)" }}>
+                {exam.mode === "practice" ? "錯題重練" : "模擬抽考"} · 已作答 {answeredCount}/{total}
+              </span>
+              <span className="mono" style={{ fontSize: 12, color: "var(--ink-mute)", display: "flex", alignItems: "center", gap: 5 }}>
+                <Icon name="clock" size={13} /> {mmss}
+              </span>
+            </div>
+            <div style={{ height: 4, background: "var(--line)", borderRadius: 99, overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${(answeredCount / total) * 100}%`, background: "var(--accent)", borderRadius: 99, transition: "width .3s" }} />
+            </div>
+          </div>
+          <button className="btn show-lg-none" onClick={() => setNavOpen(true)} style={{ padding: "8px 12px" }}>
+            <Icon name="list" size={16} /> 題號
+            {flaggedList.length > 0 && <span style={{ marginLeft: 2, color: "var(--flag)", fontSize: 12 }}>·{flaggedList.length}</span>}
+          </button>
+          <button className="btn btn-primary" onClick={() => setConfirm(true)}>送出考卷</button>
+        </div>
+      </header>
+
+      <div style={{ flex: 1, maxWidth: 1320, width: "100%", margin: "0 auto", padding: "0 22px", display: "grid", gridTemplateColumns: "1fr 300px", gap: 28 }} className="exam-grid">
+        <main ref={mainRef} style={{ padding: "36px 0 40px", minWidth: 0 }}>
+          <div key={q.id} className="rise" style={{ maxWidth: 720 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
+              <span className="mono" style={{ fontSize: 13, color: "var(--accent)", fontWeight: 500, whiteSpace: "nowrap", flex: "none" }}>
+                第 {String(idx + 1).padStart(2, "0")} / {total} 題
+              </span>
+              <span className="tag">{q.topic}</span>
+              <button onClick={() => toggleFlag(q.id)} className="btn"
+                style={{
+                  marginLeft: "auto", padding: "7px 13px", fontSize: 13,
+                  color: flags[q.id] ? "var(--flag)" : "var(--ink-mute)",
+                  borderColor: flags[q.id] ? "var(--flag)" : "var(--line)",
+                  background: flags[q.id] ? "var(--flag-soft)" : "var(--panel-2)",
+                }}>
+                <Icon name="flag" size={15} /> {flags[q.id] ? "已標註不確定" : "標註不確定"}
+              </button>
+            </div>
+
+            <h2 className="serif" style={{ fontSize: "clamp(19px,2.2vw,25px)", lineHeight: 1.55, marginBottom: 28 }}>
+              {q.q}
+            </h2>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {q.opts.map((opt, i) => {
+                const selected = answers[q.id] === i;
+                return (
+                  <button key={i} onClick={() => pick(q.id, i)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 16, textAlign: "left",
+                      padding: "16px 18px", borderRadius: 8, cursor: "pointer",
+                      border: "1px solid " + (selected ? "var(--accent)" : "var(--line)"),
+                      background: selected ? "var(--accent-soft)" : "var(--panel)",
+                      color: "var(--ink)", transition: "border-color .14s, background .14s",
+                      fontFamily: "var(--font-sans)", fontSize: 16,
+                    }}
+                    onMouseEnter={(e) => { if (!selected) e.currentTarget.style.borderColor = "var(--ink-mute)"; }}
+                    onMouseLeave={(e) => { if (!selected) e.currentTarget.style.borderColor = "var(--line)"; }}>
+                    <span style={{
+                      flex: "none", width: 30, height: 30, borderRadius: 6, display: "grid", placeItems: "center",
+                      fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 600,
+                      border: "1px solid " + (selected ? "transparent" : "var(--line)"),
+                      background: selected ? "var(--accent)" : "transparent",
+                      color: selected ? "var(--accent-ink)" : "var(--ink-soft)",
+                    }}>{LETTERS[i]}</span>
+                    <span style={{ flex: 1, lineHeight: 1.5 }}>{opt}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 36, gap: 12 }}>
+              <button className="btn" onClick={() => goto(idx - 1)} disabled={idx === 0}>
+                <Icon name="arrowL" size={15} /> 上一題
+              </button>
+              <span className="mono" style={{ fontSize: 12, color: "var(--ink-mute)" }}>
+                {answers[q.id] != null ? "已選擇" : "尚未作答"}
+              </span>
+              {isLast ? (
+                <button className="btn btn-primary" onClick={() => setConfirm(true)}>
+                  送出考卷 <Icon name="check" size={15} />
+                </button>
+              ) : (
+                <button className="btn btn-primary" onClick={() => goto(idx + 1)}>
+                  下一題 <Icon name="arrowR" size={15} />
+                </button>
+              )}
+            </div>
+          </div>
+        </main>
+
+        <aside className="exam-aside" style={{ padding: "36px 0", position: "sticky", top: 70, alignSelf: "start", height: "calc(100vh - 70px)", overflowY: "auto" }}>
+          <NavPanel qs={qs} idx={idx} answers={answers} flags={flags} flaggedList={flaggedList} goto={goto} />
+        </aside>
+      </div>
+
+      {navOpen && (
+        <div onClick={() => setNavOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 50, background: "oklch(0 0 0 / 0.5)", display: "flex", justifyContent: "flex-end" }}>
+          <div onClick={(e) => e.stopPropagation()} className="rise" style={{ width: "min(380px, 88vw)", background: "var(--bg)", borderLeft: "1px solid var(--line)", padding: "20px 20px 40px", overflowY: "auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+              <h3 className="serif" style={{ fontSize: 18 }}>題目導航</h3>
+              <button className="btn btn-ghost" onClick={() => setNavOpen(false)} style={{ padding: 8 }}><Icon name="x" size={16} /></button>
+            </div>
+            <NavPanel qs={qs} idx={idx} answers={answers} flags={flags} flaggedList={flaggedList} goto={goto} />
+          </div>
+        </div>
+      )}
+
+      {confirm && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 60, background: "oklch(0 0 0 / 0.55)", display: "grid", placeItems: "center", padding: 20 }} onClick={() => setConfirm(false)}>
+          <div className="card rise" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 440, width: "100%", padding: 30 }}>
+            <h3 className="serif" style={{ fontSize: 22, marginBottom: 10 }}>確定送出考卷？</h3>
+            <p style={{ fontSize: 14.5, color: "var(--ink-soft)", lineHeight: 1.6, marginBottom: 20 }}>
+              送出後將立即計分並記錄成績，無法再修改答案。
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
+              <SummaryRow label="已作答" value={`${answeredCount} / ${total} 題`} tone={answeredCount === total ? "var(--correct)" : "var(--flag)"} />
+              <SummaryRow label="未作答" value={`${total - answeredCount} 題`} tone={total - answeredCount > 0 ? "var(--wrong)" : "var(--ink-mute)"} />
+              <SummaryRow label="標註不確定" value={`${flaggedList.length} 題`} tone="var(--flag)" />
+            </div>
+            {total - answeredCount > 0 && (
+              <p style={{ fontSize: 13, color: "var(--wrong)", marginBottom: 18 }}>
+                尚有 {total - answeredCount} 題未作答，未作答將以答錯計。
+              </p>
+            )}
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button className="btn" onClick={() => setConfirm(false)}>返回作答</button>
+              <button className="btn btn-primary" onClick={finalize}>確認送出</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SummaryRow({ label, value, tone }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderRadius: 6, background: "var(--bg-2)", border: "1px solid var(--line-soft)" }}>
+      <span style={{ fontSize: 14, color: "var(--ink-soft)" }}>{label}</span>
+      <span className="mono" style={{ fontSize: 14, fontWeight: 600, color: tone || "var(--ink)", whiteSpace: "nowrap" }}>{value}</span>
+    </div>
+  );
+}
+
+function NavPanel({ qs, idx, answers, flags, flaggedList, goto }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+      <div>
+        <div className="label" style={{ marginBottom: 12, display: "flex", justifyContent: "space-between" }}>
+          <span>題目導航</span>
+          <span style={{ color: "var(--ink-mute)", fontWeight: 400 }}>{Object.keys(answers).length}/{qs.length}</span>
+        </div>
+        <div key={"navgrid-" + idx} style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 6 }} className="nav-grid">
+          {qs.map((qq, i) => {
+            const ans = answers[qq.id] != null;
+            const cur = i === idx;
+            const fl = flags[qq.id];
+            return (
+              <button key={qq.id} onClick={() => goto(i)} title={`第 ${i + 1} 題`}
+                className={"nav-cell" + (cur ? " is-cur" : "") + (ans ? " is-ans" : "") + (fl ? " is-flag" : "")}>
+                {i + 1}
+                {fl && <span className="flag-dot" />}
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ display: "flex", gap: 14, marginTop: 12, flexWrap: "wrap" }}>
+          <Legend color="var(--panel-2)" border="transparent" label="已作答" />
+          <Legend color="transparent" border="var(--line)" label="未作答" />
+          <Legend color="transparent" border="var(--flag)" dot label="不確定" />
+        </div>
+      </div>
+
+      <hr className="divider" />
+
+      <div>
+        <div className="label" style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 7, color: "var(--flag)" }}>
+          <Icon name="flag" size={14} /> 不確定清單 ({flaggedList.length})
+        </div>
+        {flaggedList.length === 0 ? (
+          <p style={{ fontSize: 13, color: "var(--ink-mute)", lineHeight: 1.6 }}>
+            尚未標註任何題目。作答時按「標註不確定」或鍵盤 <span className="mono">F</span>，會列在此處方便回頭檢查。
+          </p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {flaggedList.map((qq) => (
+              <button key={qq.id} onClick={() => goto(qq.i)}
+                style={{
+                  display: "flex", gap: 10, alignItems: "flex-start", textAlign: "left", cursor: "pointer",
+                  padding: "9px 11px", borderRadius: 6, border: "1px solid var(--line-soft)", background: "var(--panel)",
+                  color: "var(--ink)", width: "100%",
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.borderColor = "var(--flag)"}
+                onMouseLeave={(e) => e.currentTarget.style.borderColor = "var(--line-soft)"}>
+                <span className="mono" style={{ fontSize: 12, color: "var(--flag)", fontWeight: 600, flex: "none", marginTop: 1 }}>{String(qq.i + 1).padStart(2, "0")}</span>
+                <span style={{ fontSize: 12.5, color: "var(--ink-soft)", lineHeight: 1.45, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{qq.q}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Legend({ color, border, label, dot }) {
+  return (
+    <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--ink-mute)" }}>
+      <span style={{ position: "relative", width: 13, height: 13, borderRadius: 4, background: color, border: "1px solid " + border }}>
+        {dot && <span style={{ position: "absolute", top: 1, right: 1, width: 4, height: 4, borderRadius: "50%", background: "var(--flag)" }} />}
+      </span>
+      {label}
+    </span>
+  );
+}
+
+/* ============================================================
+   Result
+   ============================================================ */
+function Result({ record, onHome, onWrong, onRetry }) {
+  const { score, correct, total, durationSec, flaggedCount } = record;
+  const verdict = score >= 80 ? { t: "表現優異", c: "var(--correct)" } : score >= 60 ? { t: "及格通過", c: "var(--accent)" } : { t: "仍需加強", c: "var(--wrong)" };
+  const wrongCount = total - correct;
+  const mins = Math.floor(durationSec / 60), secs = durationSec % 60;
+
+  return (
+    <div style={{ maxWidth: 680, margin: "0 auto", padding: "56px 24px 80px", textAlign: "center" }} className="rise">
+      <div className="mono" style={{ fontSize: 12, letterSpacing: "0.18em", color: "var(--ink-mute)", marginBottom: 28 }}>
+        {record.mode === "practice" ? "錯題重練完成" : "模擬測驗完成"}
+      </div>
+
+      <div style={{ display: "grid", placeItems: "center", marginBottom: 24 }}>
+        <ScoreRing value={score} size={196} stroke={12} label={score} sub="SCORE / 100" />
+      </div>
+
+      <h1 className="serif" style={{ fontSize: 30, marginBottom: 8, color: verdict.c }}>{verdict.t}</h1>
+      <p style={{ fontSize: 15, color: "var(--ink-soft)", marginBottom: 36 }}>
+        本場共 {total} 題，答對 {correct} 題。成績已記錄於你的個人紀錄中。
+      </p>
+
+      <div className="card" style={{ padding: "8px 0", display: "grid", gridTemplateColumns: "repeat(4,1fr)", marginBottom: 32 }}>
+        {[
+          { label: "答對", value: correct, tone: "var(--correct)" },
+          { label: "答錯", value: wrongCount, tone: wrongCount ? "var(--wrong)" : "var(--ink)" },
+          { label: "標註不確定", value: flaggedCount, tone: "var(--flag)" },
+          { label: "用時", value: `${mins}:${String(secs).padStart(2, "0")}`, tone: "var(--ink)" },
+        ].map((s, i) => (
+          <div key={s.label} style={{ padding: "20px 12px", borderLeft: i ? "1px solid var(--line-soft)" : "none" }}>
+            <div className="serif" style={{ fontSize: 30, fontWeight: 600, color: s.tone }}>{s.value}</div>
+            <div className="mono" style={{ fontSize: 11, color: "var(--ink-mute)", marginTop: 4 }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+        <button className="btn btn-lg" onClick={onHome}>回首頁</button>
+        {wrongCount > 0 && <button className="btn btn-lg" onClick={onWrong}><Icon name="again" size={16} /> 檢視錯題本</button>}
+        <button className="btn btn-primary btn-lg" onClick={onRetry}><Icon name="spark" size={16} /> 再考一次</button>
+      </div>
+
+      <p className="mono" style={{ fontSize: 11, color: "var(--ink-mute)", marginTop: 30, letterSpacing: "0.04em" }}>
+        答錯的題目已自動累計至錯題本 · 紀錄編號 {record.id}
+      </p>
+    </div>
+  );
+}
+
+/* ============================================================
+   Records
+   ============================================================ */
+function Records({ user, onStartExam, onNav }) {
+  const records = window.ExamStore.getRecords(user.email);
+  const exams = records.filter((r) => r.mode === "exam");
+  const stats = window.ExamStore.stats(user.email);
+  const [filter, setFilter] = React.useState("all");
+
+  const fmt = (t) => {
+    const d = new Date(t);
+    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  };
+  const shown = records.filter((r) => filter === "all" || r.mode === filter);
+  const trend = exams.slice(0, 12).reverse();
+
+  return (
+    <div style={{ maxWidth: "var(--maxw)", margin: "0 auto", padding: "40px 24px 80px" }} className="rise">
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 16, marginBottom: 28 }}>
+        <div>
+          <h1 className="serif" style={{ fontSize: "clamp(26px,3vw,34px)" }}>考試紀錄</h1>
+          <p style={{ fontSize: 14, color: "var(--ink-mute)", marginTop: 6, display: "flex", alignItems: "center", gap: 7 }}>
+            <Icon name="user" size={14} /> {user.nickname} · 此紀錄僅你本人可見
+          </p>
+        </div>
+        <button className="btn btn-primary" onClick={onStartExam}><Icon name="spark" size={15} /> 開始新的抽考</button>
+      </div>
+
+      {records.length === 0 ? (
+        <div className="card"><EmptyState icon="history" title="尚無任何考試紀錄"
+          desc="完成模擬抽考後，每一場的分數、用時與作答都會記錄在此，且僅你本人能查看。"
+          action={<button className="btn btn-primary" onClick={onStartExam}>開始第一場抽考</button>} /></div>
+      ) : (
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 20, marginBottom: 28 }} className="dash-top">
+            <div className="card" style={{ padding: "24px 28px" }}>
+              <div className="label" style={{ marginBottom: 18 }}>分數趨勢（最近 {trend.length} 場模擬）</div>
+              {trend.length === 0 ? (
+                <p style={{ fontSize: 13, color: "var(--ink-mute)" }}>尚無模擬抽考紀錄</p>
+              ) : (
+                <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 140 }}>
+                  {trend.map((r, i) => (
+                    <div key={r.id} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 7, height: "100%", justifyContent: "flex-end" }}>
+                      <span className="mono" style={{ fontSize: 11, color: "var(--ink-soft)" }}>{r.score}</span>
+                      <div style={{
+                        width: "100%", maxWidth: 30, borderRadius: "3px 3px 0 0",
+                        height: `${Math.max(4, r.score)}%`,
+                        background: r.score >= 80 ? "var(--correct)" : r.score >= 60 ? "var(--accent)" : "var(--wrong)",
+                        opacity: i === trend.length - 1 ? 1 : 0.55,
+                      }} title={`${r.score} 分`} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="card" style={{ padding: "24px 28px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 22, alignContent: "center" }}>
+              <Stat icon="trophy" label="最佳" value={stats.best} />
+              <Stat icon="target" label="平均" value={stats.avg} />
+              <Stat icon="doc" label="總場次" value={stats.totalExams} />
+              <Stat icon="again" label="錯題數" value={stats.wrongUnique} />
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+            {[["all", "全部"], ["exam", "模擬抽考"], ["practice", "錯題重練"]].map(([kk, l]) => (
+              <button key={kk} onClick={() => setFilter(kk)} className="btn" style={{
+                padding: "7px 15px", fontSize: 13,
+                background: filter === kk ? "var(--accent-soft)" : "transparent",
+                borderColor: filter === kk ? "var(--accent)" : "var(--line)",
+                color: filter === kk ? "var(--ink)" : "var(--ink-mute)",
+              }}>{l}</button>
+            ))}
+            <span style={{ marginLeft: "auto", alignSelf: "center", fontSize: 13, color: "var(--ink-mute)" }} className="mono">{shown.length} 筆</span>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {shown.map((r) => (
+              <div key={r.id} className="card" style={{ padding: "18px 22px", display: "flex", alignItems: "center", gap: 20 }}>
+                <ScoreRing value={r.score} size={58} stroke={5} label={r.score} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
+                    <span className="serif" style={{ fontSize: 17 }}>{r.mode === "practice" ? "錯題重練" : "模擬抽考"}</span>
+                    {r.mode === "practice" && <span className="tag">PRACTICE</span>}
+                    {r.score >= 80 && <span className="tag" style={{ color: "var(--correct)", borderColor: "var(--correct)" }}>高分</span>}
+                  </div>
+                  <div className="mono" style={{ fontSize: 12, color: "var(--ink-mute)", marginTop: 4 }}>{fmt(r.finishedAt)} · {r.id}</div>
+                </div>
+                <div style={{ display: "flex", gap: 26, textAlign: "right" }} className="rec-meta">
+                  <MetaCell label="答對" value={`${r.correct}/${r.total}`} />
+                  <MetaCell label="用時" value={`${Math.floor(r.durationSec / 60)}:${String(r.durationSec % 60).padStart(2, "0")}`} />
+                  <MetaCell label="不確定" value={r.flaggedCount} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function MetaCell({ label, value }) {
+  return (
+    <div>
+      <div className="mono" style={{ fontSize: 15, fontWeight: 600 }}>{value}</div>
+      <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-mute)", marginTop: 2 }}>{label}</div>
+    </div>
+  );
+}
+
+/* ============================================================
+   WrongBook
+   ============================================================ */
+function WrongBook({ user, onPractice }) {
+  const wrong = window.ExamStore.getWrongBook(user.email);
+  const [open, setOpen] = React.useState({});
+  const [picked, setPicked] = React.useState({});
+  const [topicFilter, setTopicFilter] = React.useState("all");
+
+  const topics = ["all", ...Array.from(new Set(wrong.map((w) => w.topic)))];
+  const shown = wrong.filter((w) => topicFilter === "all" || w.topic === topicFilter);
+  const selectedIds = Object.keys(picked).filter((id) => picked[id]);
+
+  const fmtAgo = (t) => {
+    const days = Math.floor((Date.now() - t) / 86400000);
+    if (days <= 0) return "今天";
+    if (days === 1) return "昨天";
+    if (days < 30) return `${days} 天前`;
+    return `${Math.floor(days / 30)} 個月前`;
+  };
+  const toggle = (id) => setPicked((p) => ({ ...p, [id]: !p[id] }));
+
+  return (
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: "40px 24px 120px" }} className="rise">
+      <div style={{ marginBottom: 8 }}>
+        <h1 className="serif" style={{ fontSize: "clamp(26px,3vw,34px)" }}>錯題本</h1>
+        <p style={{ fontSize: 14, color: "var(--ink-mute)", marginTop: 6 }}>
+          依累計答錯次數由高至低排序，越常錯的題目越優先複習。
+        </p>
+      </div>
+
+      {wrong.length === 0 ? (
+        <div className="card" style={{ marginTop: 20 }}>
+          <EmptyState icon="trophy" title="目前沒有錯題" desc="完成模擬抽考後，答錯的題目會自動收錄於此並累計次數。保持下去！" />
+        </div>
+      ) : (
+        <>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", margin: "22px 0 18px" }}>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {topics.map((t) => (
+                <button key={t} onClick={() => setTopicFilter(t)} className="btn"
+                  style={{
+                    padding: "6px 13px", fontSize: 12.5,
+                    background: topicFilter === t ? "var(--accent-soft)" : "transparent",
+                    borderColor: topicFilter === t ? "var(--accent)" : "var(--line)",
+                    color: topicFilter === t ? "var(--ink)" : "var(--ink-mute)",
+                  }}>{t === "all" ? `全部 (${wrong.length})` : t}</button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {shown.map((w) => {
+              const isOpen = open[w.id];
+              const globalRank = wrong.indexOf(w) + 1;
+              return (
+                <div key={w.id} className="card" style={{ overflow: "hidden", borderColor: picked[w.id] ? "var(--accent)" : "var(--line-soft)" }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 16, padding: "18px 22px" }}>
+                    <button onClick={() => toggle(w.id)} title="加入重練"
+                      style={{
+                        flex: "none", width: 22, height: 22, borderRadius: 5, marginTop: 2, cursor: "pointer",
+                        display: "grid", placeItems: "center",
+                        border: "1px solid " + (picked[w.id] ? "transparent" : "var(--line)"),
+                        background: picked[w.id] ? "var(--accent)" : "transparent",
+                        color: "var(--accent-ink)",
+                      }}>
+                      {picked[w.id] && <Icon name="check" size={13} stroke={2.4} />}
+                    </button>
+
+                    <div style={{ flex: "none", textAlign: "center", minWidth: 52 }}>
+                      <div className="serif" style={{ fontSize: 26, fontWeight: 600, color: "var(--wrong)", lineHeight: 1 }}>{w.count}</div>
+                      <div className="mono" style={{ fontSize: 10, color: "var(--ink-mute)", marginTop: 3 }}>次答錯</div>
+                    </div>
+
+                    <div style={{ width: 1, alignSelf: "stretch", background: "var(--line-soft)" }} />
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 8, flexWrap: "wrap" }}>
+                        <span className="mono" style={{ fontSize: 11, color: "var(--ink-mute)" }}>#{globalRank}</span>
+                        <span className="tag">{w.topic}</span>
+                        <span className="mono" style={{ fontSize: 11, color: "var(--ink-mute)" }}>最近答錯 · {fmtAgo(w.lastWrongAt)}</span>
+                      </div>
+                      <p className="serif" style={{ fontSize: 17, lineHeight: 1.5 }}>{w.q}</p>
+
+                      {!isOpen ? (
+                        <button className="btn btn-ghost" onClick={() => setOpen((o) => ({ ...o, [w.id]: true }))}
+                          style={{ marginTop: 10, padding: "5px 0", fontSize: 13, color: "var(--accent)" }}>
+                          顯示正解與我的作答 <Icon name="arrowR" size={13} />
+                        </button>
+                      ) : (
+                        <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+                          {w.opts.map((opt, i) => {
+                            const isCorrect = i === w.a;
+                            const wasPicked = i === w.lastPicked;
+                            return (
+                              <div key={i} style={{
+                                display: "flex", alignItems: "center", gap: 12, padding: "10px 13px", borderRadius: 6,
+                                border: "1px solid " + (isCorrect ? "var(--correct)" : wasPicked ? "var(--wrong)" : "var(--line-soft)"),
+                                background: isCorrect ? "var(--correct-soft)" : wasPicked ? "var(--wrong-soft)" : "transparent",
+                              }}>
+                                <span className="mono" style={{ fontSize: 12, fontWeight: 600, color: isCorrect ? "var(--correct)" : wasPicked ? "var(--wrong)" : "var(--ink-mute)", flex: "none" }}>{["A","B","C","D","E"][i]}</span>
+                                <span style={{ flex: 1, fontSize: 14.5, color: "var(--ink-soft)" }}>{opt}</span>
+                                {isCorrect && <span style={{ fontSize: 12, color: "var(--correct)", display: "flex", alignItems: "center", gap: 4 }}><Icon name="check" size={13} /> 正解</span>}
+                                {wasPicked && !isCorrect && <span style={{ fontSize: 12, color: "var(--wrong)", display: "flex", alignItems: "center", gap: 4 }}><Icon name="x" size={12} /> 我曾選</span>}
+                              </div>
+                            );
+                          })}
+                          <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                            <button className="btn" style={{ padding: "6px 13px", fontSize: 13 }} onClick={() => onPractice([w.id])}>
+                              <Icon name="again" size={14} /> 單題重練
+                            </button>
+                            <button className="btn btn-ghost" style={{ padding: "6px 13px", fontSize: 13, color: "var(--ink-mute)" }} onClick={() => setOpen((o) => ({ ...o, [w.id]: false }))}>
+                              收合
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {wrong.length > 0 && (
+        <div style={{
+          position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 25,
+          background: "var(--bg)", borderTop: "1px solid var(--line)",
+          padding: "14px 24px",
+        }}>
+          <div style={{ maxWidth: 900, margin: "0 auto", display: "flex", alignItems: "center", gap: 14, justifyContent: "space-between", flexWrap: "wrap" }}>
+            <span style={{ fontSize: 13.5, color: "var(--ink-soft)" }}>
+              {selectedIds.length > 0 ? <>已選取 <b className="serif" style={{ fontSize: 16 }}>{selectedIds.length}</b> 題</> : <>共 {wrong.length} 道錯題待克服</>}
+            </span>
+            <div style={{ display: "flex", gap: 10 }}>
+              {selectedIds.length > 0 ? (
+                <>
+                  <button className="btn" onClick={() => setPicked({})}>清除選取</button>
+                  <button className="btn btn-primary" onClick={() => onPractice(selectedIds)}>
+                    <Icon name="again" size={15} /> 重練選取 {selectedIds.length} 題
+                  </button>
+                </>
+              ) : (
+                <>
+                  {wrong.length > 20 && <button className="btn" onClick={() => onPractice(wrong.slice(0, 20).map((w) => w.id))}>重練最常錯前 20 題</button>}
+                  <button className="btn btn-primary" onClick={() => onPractice(wrong.map((w) => w.id))}>
+                    <Icon name="again" size={15} /> 全部重練 ({wrong.length})
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ============================================================
+   App — 路由 + Tweaks
+   ============================================================ */
+const TWEAK_DEFAULTS = {
+  theme: "paper",
+  accent: ["oklch(0.80 0.085 82)", "oklch(0.22 0.02 80)"],
+  headingFont: "Spectral",
+  fontScale: 100,
+};
+
+const ACCENTS = [
+  ["oklch(0.80 0.085 82)", "oklch(0.22 0.02 80)"],
+  ["oklch(0.56 0.13 22)", "oklch(0.97 0.01 22)"],
+  ["oklch(0.70 0.07 152)", "oklch(0.18 0.02 152)"],
+  ["oklch(0.62 0.11 264)", "oklch(0.98 0.01 264)"],
+];
+
+function App() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const [user, setUser] = React.useState(() => window.ExamStore.currentUser());
+  const [route, setRoute] = React.useState(user ? "dashboard" : "auth");
+  const [exam, setExam] = React.useState(null);
+  const [lastRecord, setLastRecord] = React.useState(null);
+  const [syncing, setSyncing] = React.useState(false);
+  const [savedExam, setSavedExam] = React.useState(null);
+
+  React.useEffect(() => {
+    const r = document.documentElement;
+    r.setAttribute("data-theme", t.theme === "paper" ? "paper" : "dark");
+    const acc = Array.isArray(t.accent) ? t.accent : ACCENTS[0];
+    r.style.setProperty("--accent", acc[0]);
+    r.style.setProperty("--accent-ink", acc[1]);
+    r.style.setProperty("--accent-soft", `color-mix(in oklch, ${acc[0]} 16%, transparent)`);
+    r.style.setProperty("--font-serif", `"${t.headingFont}", "Noto Serif TC", Georgia, serif`);
+    document.body.style.fontSize = (16 * (t.fontScale || 100) / 100) + "px";
+  }, [t.theme, t.accent, t.headingFont, t.fontScale]);
+
+  const nav = (r) => { setRoute(r); window.scrollTo(0, 0); };
+
+  React.useEffect(() => {
+    if (!user) return;
+    try {
+      const v = localStorage.getItem("exam_app:v1:active:" + user.email);
+      setSavedExam(v ? JSON.parse(v) : null);
+    } catch(e) { setSavedExam(null); }
+  }, [user, route]);
+
+  const resumeExam = () => {
+    if (!savedExam) return;
+    setExam({ examId: savedExam.examId, mode: savedExam.mode, startedAt: savedExam.startedAt, questions: savedExam.questions });
+    nav("exam");
+  };
+
+  const discardSavedExam = () => {
+    if (!user) return;
+    try { localStorage.removeItem("exam_app:v1:active:" + user.email); } catch(e) {}
+    setSavedExam(null);
+  };
+
+  const startExam = () => {
+    setExam({ examId: "E-" + Date.now(), mode: "exam", startedAt: Date.now(), questions: window.ExamStore.drawExam(100) });
+    nav("exam");
+  };
+  const startPractice = (ids) => {
+    const qs = window.ExamStore.drawByIds(ids);
+    if (!qs.length) return;
+    setExam({ examId: "P-" + Date.now(), mode: "practice", startedAt: Date.now(), questions: qs });
+    nav("exam");
+  };
+  const onSubmit = (rec) => { setLastRecord(rec); setExam(null); nav("result"); };
+  const logout = () => { window.ExamStore.logout(); setUser(null); setExam(null); nav("auth"); };
+
+  const handleAuthed = (u) => {
+    if (!window.CloudStore) { setUser(u); nav("dashboard"); return; }
+    setSyncing(true);
+    const localRecs = window.ExamStore.getRecords(u.email);
+    window.CloudStore.saveUser(u)
+      .then(() => window.CloudStore.getRecords(u.email))
+      .then((cloudRecs) => {
+        if (cloudRecs.length === 0 && localRecs.length > 0) {
+          return Promise.all(localRecs.map((r) => window.CloudStore.saveRecord(u.email, r)));
+        }
+        window.ExamStore._overwriteRecords(u.email, cloudRecs);
+      })
+      .then(() => { setSyncing(false); setUser(u); nav("dashboard"); })
+      .catch((err) => {
+        console.warn('[CloudStore] 同步失敗，使用本機資料:', err.message);
+        setSyncing(false);
+        setUser(u);
+        nav("dashboard");
+      });
+  };
+
+  const Panel = (
+    <TweaksPanel title="風格 Tweaks">
+      <TweakSection label="主題" />
+      <TweakRadio label="明暗" value={t.theme} options={["dark", "paper"]}
+        onChange={(v) => setTweak("theme", v)} />
+      <TweakColor label="強調色" value={Array.isArray(t.accent) ? t.accent : ACCENTS[0]}
+        options={ACCENTS} onChange={(v) => setTweak("accent", v)} />
+      <TweakSection label="字體" />
+      <TweakSelect label="標題襯線字" value={t.headingFont}
+        options={["Spectral", "Newsreader", "Source Serif 4", "Noto Serif TC"]}
+        onChange={(v) => setTweak("headingFont", v)} />
+      <TweakSlider label="文字大小" value={t.fontScale} min={90} max={115} step={5} unit="%"
+        onChange={(v) => setTweak("fontScale", v)} />
+    </TweaksPanel>
+  );
+
+  if (route === "auth") {
+    return <>{<AuthScreen onAuthed={handleAuthed} syncing={syncing} />}{Panel}</>;
+  }
+  if (route === "exam" && exam && user) {
+    return <>{<Exam user={user} exam={exam} onSubmit={onSubmit} onExit={() => { setExam(null); nav("dashboard"); }} />}{Panel}</>;
+  }
+  if (route === "result" && lastRecord) {
+    return (
+      <>
+        <div className="app-shell">
+          <Result record={lastRecord}
+            onHome={() => nav("dashboard")}
+            onWrong={() => nav("wrong")}
+            onRetry={() => startExam()} />
+        </div>
+        {Panel}
+      </>
+    );
+  }
+
+  return (
+    <div className="app-shell">
+      <PageHeader user={user} active={route} onNav={nav} onLogout={logout} />
+      {route === "dashboard" && <Dashboard user={user} onStartExam={startExam} onPractice={startPractice} onNav={nav} savedExam={savedExam} onResume={resumeExam} onDiscardSaved={discardSavedExam} />}
+      {route === "records" && <Records user={user} onStartExam={startExam} onNav={nav} />}
+      {route === "wrong" && <WrongBook user={user} onPractice={startPractice} />}
+      {Panel}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
