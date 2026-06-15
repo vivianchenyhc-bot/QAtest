@@ -478,7 +478,8 @@ select.twk-field{padding-right:22px;
         (r.items || []).forEach((it) => {
           const base = bank[it.qid];
           if (!base) return;
-          const isWrong = it.picked !== it.answer && it.picked != null;
+          const currentAnswer = base.a;
+          const isWrong = it.picked !== currentAnswer && it.picked != null;
           const isFlagged = !!it.flagged;
           if (!isWrong && !isFlagged) return;
           if (!map[it.qid]) {
@@ -1532,13 +1533,18 @@ function RecordDetail({ record, onClose }) {
   const bank = {};
   (window.QUESTION_BANK || []).forEach((q) => { bank[q.id] = q; });
 
-  const items = (record.items || []).map((it, idx) => ({
-    ...it,
-    num: idx + 1,
-    qFull: bank[it.qid] || null,
-    isCorrect: it.picked === it.answer,
-    isAnswered: it.picked != null,
-  }));
+  const items = (record.items || []).map((it, idx) => {
+    const qFull = bank[it.qid] || null;
+    const currentAnswer = qFull != null ? qFull.a : it.answer;
+    return {
+      ...it,
+      answer: currentAnswer,
+      num: idx + 1,
+      qFull,
+      isCorrect: it.picked === currentAnswer,
+      isAnswered: it.picked != null,
+    };
+  });
 
   const shown = tab === "wrong"
     ? items.filter((it) => !it.isCorrect)
