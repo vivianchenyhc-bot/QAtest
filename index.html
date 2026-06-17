@@ -413,13 +413,46 @@ select.twk-field{padding-right:22px;
       return users[e];
     },
 
-    drawExam(n) {
+    drawExam(n, email) {
       const bank = (window.QUESTION_BANK || []).slice();
       for (let i = bank.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [bank[i], bank[j]] = [bank[j], bank[i]];
       }
-      return bank.slice(0, Math.min(n, bank.length));
+      const count = Math.min(n, bank.length);
+      if (!email) return bank.slice(0, count);
+
+      // 限制與前兩次模擬抽考的重複率各不超過 20%
+      const prevExams = this.getRecords(email)
+        .filter((r) => r.mode === "exam")
+        .slice(0, 2)
+        .map((r) => new Set((r.items || []).map((it) => it.qid)));
+      if (prevExams.length === 0) return bank.slice(0, count);
+
+      const limit = Math.floor(count * 0.2);
+      const overlapCount = prevExams.map(() => 0);
+      const picked = [];
+      const pickedIds = new Set();
+
+      for (const q of bank) {
+        if (picked.length >= count) break;
+        const hits = prevExams.map((s) => s.has(q.id));
+        const wouldExceed = hits.some((hit, i) => hit && overlapCount[i] + 1 > limit);
+        if (wouldExceed) continue;
+        picked.push(q);
+        pickedIds.add(q.id);
+        hits.forEach((hit, i) => { if (hit) overlapCount[i] += 1; });
+      }
+      // 若題庫過小導致無法在限制內補滿，放寬限制補齊剩餘題數
+      if (picked.length < count) {
+        for (const q of bank) {
+          if (picked.length >= count) break;
+          if (pickedIds.has(q.id)) continue;
+          picked.push(q);
+          pickedIds.add(q.id);
+        }
+      }
+      return picked;
     },
 
     drawByIds(ids) {
@@ -2057,7 +2090,7 @@ function App() {
   };
 
   const startExam = () => {
-    setExam({ examId: "E-" + Date.now(), mode: "exam", startedAt: Date.now(), questions: window.ExamStore.drawExam(100) });
+    setExam({ examId: "E-" + Date.now(), mode: "exam", startedAt: Date.now(), questions: window.ExamStore.drawExam(100, user.email) });
     nav("exam");
   };
   const startPractice = (ids) => {
